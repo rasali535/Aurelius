@@ -1,4 +1,4 @@
-import { DashboardSummary } from "../types";
+import type { DashboardSummary } from "../types";
 
 type Props = {
   summary: DashboardSummary | null;

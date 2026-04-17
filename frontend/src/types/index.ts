@@ -15,6 +15,8 @@ export type ValidatorResult = {
   reason: string;
   response_time_ms: number;
   unit_price: number;
+  payment_status?: string;
+  tx_hash?: string;
 };
 
 export type TransactionItem = {

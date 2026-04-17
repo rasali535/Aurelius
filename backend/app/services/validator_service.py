@@ -41,10 +41,6 @@ VALIDATORS = [
 
 from app.services.circle_service import circle_service
 
-VALIDATORS = [
-    # ... (same validator definitions)
-]
-
 async def seed_validators(db):
     # Check if we have a wallet set for validators
     wallet_set_id = None
@@ -62,17 +58,16 @@ async def seed_validators(db):
     wallet_set_id = existing_sets["id"] if existing_sets else wallet_set_id
 
     for validator in VALIDATORS:
-        existing = db.agents.find_one({"_id": validator["id"]})
+        existing = await db.agents.find_one({"_id": validator["id"]})
         if not existing or not existing.get("wallet_id"):
             # Create a real developer-controlled wallet for this validator
             try:
-                wallets = await circle_service.create_wallets(wallet_set_id)
+                wallets = await circle_service.create_wallets(wallet_set_id, blockchain="ARC-TESTNET")
                 wallet_info = wallets[0]
-                db.agents.update_one(
+                await db.agents.update_one(
                     {"_id": validator["id"]},
                     {
                         "$set": {
-                            "_id": validator["id"],
                             "name": validator["name"],
                             "role": "validator",
                             "wallet_id": wallet_info["id"],
@@ -87,12 +82,16 @@ async def seed_validators(db):
             except Exception as e:
                 print(f"Failed to seed wallet for {validator['name']}: {e}")
 
-async def run_validator(check_type: str, prompt: str, draft_response: str, payment_sig: str = None):
+from app.services.x402_service import x402_service
+
+async def run_validator(check_type: str, prompt: str, draft_response: str, payment_sig: str = None, signing_payload: dict = None):
     # If no payment signature is provided, return a 402 challenge
     if not payment_sig:
         return {"status": "payment_required", "challenge": True}
     
-    # ... (logic for check types)
+    # Verify the signature
+    if not signing_payload or not x402_service.verify_signature(signing_payload, payment_sig):
+        return {"status": "error", "reason": "Invalid payment signature"}
     start = time.time()
 
     if check_type in ["hallucination", "hallucination_premium"]:

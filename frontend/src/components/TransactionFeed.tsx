@@ -1,4 +1,4 @@
-import { DashboardSummary } from "../types";
+import type { DashboardSummary } from "../types";
 
 type Props = {
   summary: DashboardSummary | null;
@@ -19,7 +19,7 @@ export default function TransactionFeed({ summary }: Props) {
                 </p>
                 <p className="address-link">{tx.wallet_address?.slice(0, 10)}...</p>
                 {tx.tx_hash && (
-                  <a href={`https://fuji.snowtrace.io/tx/${tx.tx_hash}`} target="_blank" className="tx-link">
+                  <a href={`https://testnet.arcscan.app/tx/${tx.tx_hash}`} target="_blank" className="tx-link">
                     View on Arc
                   </a>
                 )}

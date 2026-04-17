@@ -13,15 +13,20 @@ app = FastAPI(title="Aurelius API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.FRONTEND_ORIGIN, "*"],
+    allow_origins=[settings.FRONTEND_ORIGIN],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 @app.on_event("startup")
-def startup_seed():
-    seed_validators(db)
+async def startup_seed():
+    # Initialize the database proxy with either motor or mongomock
+    from app.db import init_db, db as db_proxy
+    initialized_db = await init_db()
+    db_proxy.set_db(initialized_db)
+    
+    await seed_validators(db)
 
 app.include_router(health_router)
 app.include_router(orchestrator_router, prefix="/api")

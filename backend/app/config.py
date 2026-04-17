@@ -11,5 +11,6 @@ class Settings:
     CIRCLE_ENTITY_SECRET_CIPHERTEXT = os.getenv("CIRCLE_ENTITY_SECRET_CIPHERTEXT")
     CIRCLE_USDC_CONTRACT = os.getenv("CIRCLE_USDC_CONTRACT")
     CIRCLE_API_URL = os.getenv("CIRCLE_API_URL", "https://api-sandbox.circle.com")
+    ARC_RPC_URL = os.getenv("ARC_RPC_URL", "https://rpc.testnet.arc.network")
 
 settings = Settings()

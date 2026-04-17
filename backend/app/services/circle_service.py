@@ -1,6 +1,7 @@
 import httpx
 import uuid
 import time
+import asyncio
 from app.config import settings
 
 class CircleService:
@@ -27,7 +28,7 @@ class CircleService:
             resp.raise_for_status()
             return resp.json()["data"]["walletSet"]
 
-    async def create_wallets(self, wallet_set_id: str, count: int = 1, blockchain: str = "AVAX-FUJI"):
+    async def create_wallets(self, wallet_set_id: str, count: int = 1, blockchain: str = "ARC-TESTNET"):
         """Creates Developer-Controlled wallets in a wallet set."""
         url = f"{self.base_url}/v1/developer/wallets"
         payload = {
@@ -43,7 +44,7 @@ class CircleService:
             return resp.json()["data"]["wallets"]
 
     async def sign_typed_data(self, wallet_id: str, typed_data: dict):
-        """Signs EIP-712 typed data using the developer signing API."""
+        """Signs EIP-712 typed data using the developer signing API with polling."""
         url = f"{self.base_url}/v1/developer/sign/typedData"
         payload = {
             "idempotencyKey": str(uuid.uuid4()),
@@ -54,7 +55,23 @@ class CircleService:
         async with httpx.AsyncClient() as client:
             resp = await client.post(url, json=payload, headers=self.headers)
             resp.raise_for_status()
-            # This returns a signing job ID; we may need to poll for the result
-            return resp.json()["data"]["signature"]
+            job_id = resp.json()["data"]["id"]
+            
+            # Poll for the signature result
+            status_url = f"{self.base_url}/v1/developer/transactions/{job_id}"
+            max_attempts = 30
+            for _ in range(max_attempts):
+                status_resp = await client.get(status_url, headers=self.headers)
+                status_resp.raise_for_status()
+                data = status_resp.json()["data"]["transaction"]
+                
+                if data["status"] == "COMPLETE":
+                    return data["signature"]
+                elif data["status"] == "FAILED":
+                    raise Exception(f"Signing failed: {data.get('errorMessage', 'Unknown error')}")
+                
+                await asyncio.sleep(1) # Wait 1 second before polling again
+            
+            raise Exception("Signing timed out after 30 seconds")
 
 circle_service = CircleService()

@@ -4,7 +4,7 @@ import MetricsCards from "../components/MetricsCards";
 import ValidatorPanel from "../components/ValidatorPanel";
 import TransactionFeed from "../components/TransactionFeed";
 import { api } from "../services/api";
-import { DashboardSummary, PromptRunResponse } from "../types";
+import type { DashboardSummary, PromptRunResponse } from "../types";
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(false);

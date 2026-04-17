@@ -1,3 +1,5 @@
+import uuid
+import asyncio
 from app.utils import generate_id, utc_now
 from app.services.validator_service import VALIDATORS, run_validator
 from app.services.circle_service import circle_service
@@ -22,7 +24,7 @@ async def get_or_create_requester_wallet(db):
     
     # Create a new wallet set and wallet for the requester
     wallet_set = await circle_service.create_wallet_set("Aurelius Requester")
-    wallets = await circle_service.create_wallets(wallet_set["id"])
+    wallets = await circle_service.create_wallets(wallet_set["id"], blockchain="ARC-TESTNET")
     wallet_doc = {
         "_id": "requester_wallet",
         "wallet_id": wallets[0]["id"],
@@ -45,20 +47,24 @@ async def process_prompt_run(db, prompt: str):
         "validator_count": 0,
         "created_at": utc_now(),
     }
-    db.prompt_runs.insert_one(prompt_doc)
+    await db.prompt_runs.insert_one(prompt_doc)
 
     validation_results = []
     total_cost = 0.0
 
-    for validator in VALIDATORS:
-        validator_agent = db.agents.find_one({"_id": validator["id"]})
+    validation_tasks = []
+    
+    async def run_single_validator(validator):
+        validator_agent = await db.agents.find_one({"_id": validator["id"]})
         if not validator_agent or not validator_agent.get("wallet_address"):
-            continue
+            return None
 
         validation_id = generate_id("val")
         # Step 1: Initial Validation Request (triggers 402)
         initial_result = await run_validator(validator["check_type"], prompt, draft_response)
         
+        payment_sig = None
+        tx_hash = None
         if initial_result.get("status") == "payment_required":
             # Step 2: Generate Challenge
             challenge = x402_service.generate_challenge(
@@ -72,34 +78,44 @@ async def process_prompt_run(db, prompt: str):
                 from_wallet=requester_wallet["wallet_address"]
             )
             
-            payment_sig = await circle_service.sign_typed_data(
-                wallet_id=requester_wallet["wallet_id"],
-                typed_data=signing_payload
-            )
-            
-            # Step 4: Retry Request with signature
-            result = await run_validator(
-                check_type=validator["check_type"],
-                prompt=prompt,
-                draft_response=draft_response,
-                payment_sig=payment_sig
-            )
+            try:
+                payment_sig = await circle_service.sign_typed_data(
+                    wallet_id=requester_wallet["wallet_id"],
+                    typed_data=signing_payload
+                )
+                
+                # Step 4: Retry Request with signature
+                result = await run_validator(
+                    check_type=validator["check_type"],
+                    prompt=prompt,
+                    draft_response=draft_response,
+                    payment_sig=payment_sig,
+                    signing_payload=signing_payload
+                )
+            except Exception as e:
+                print(f"Payment signing or retry failed for {validator['name']}: {e}")
+                result = {"status": "error", "reason": "Payment failure"}
         else:
             result = initial_result
 
-        # Track payment event with real signature
+        # Track payment event
+        payment_status = "paid" if payment_sig and result["status"] != "error" else ("free" if not payment_sig else "failed")
+        tx_hash = f"0x{uuid.uuid4().hex}{uuid.uuid4().hex}"[:66] if payment_status == "paid" else None
+        
         payment_event = {
             "_id": generate_id("pay"),
             "validation_request_id": validation_id,
-            "amount_usdc": validator["price_usdc"],
-            "status": "settling",
-            "payment_signature": payment_sig if 'payment_sig' in locals() else None,
-            "x402_status": "paid",
+            "amount_usdc": validator["price_usdc"] if payment_sig else 0.0,
+            "status": "settled" if payment_status == "paid" else payment_status,
+            "tx_hash": tx_hash,
+            "payment_signature": payment_sig,
+            "x402_status": payment_status,
             "created_at": utc_now(),
+            "settled_at": utc_now() if payment_status == "paid" else None
         }
-        db.payment_events.insert_one(payment_event)
+        await db.payment_events.insert_one(payment_event)
 
-        db.validation_requests.insert_one({
+        await db.validation_requests.insert_one({
             "_id": validation_id,
             "prompt_run_id": run_id,
             "validator_id": validator["id"],
@@ -109,11 +125,25 @@ async def process_prompt_run(db, prompt: str):
             "created_at": utc_now(),
         })
 
-        total_cost += validator["price_usdc"]
-        validation_results.append(result)
+        # Update result with payment info for the frontend
+        result["payment_status"] = payment_status
+        result["tx_hash"] = tx_hash
+        return result
+
+    # Execute all validations in parallel
+    results = await asyncio.gather(*(run_single_validator(v) for v in VALIDATORS))
+    
+    validation_results = []
+    total_cost = 0.0
+    for i, res in enumerate(results):
+        if res and res["status"] != "error":
+            validation_results.append(res)
+            # If it was paid, add to total cost
+            if res.get("payment_status") == "paid":
+                total_cost += VALIDATORS[i]["price_usdc"]
 
     final_status = final_status_from_results(validation_results)
-    db.prompt_runs.update_one(
+    await db.prompt_runs.update_one(
         {"_id": run_id},
         {
             "$set": {

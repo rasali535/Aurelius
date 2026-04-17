@@ -1,4 +1,4 @@
-import { PromptRunResponse } from "../types";
+import type { PromptRunResponse } from "../types";
 
 type Props = {
   run: PromptRunResponse | null;
@@ -27,7 +27,12 @@ export default function ValidatorPanel({ run }: Props) {
                 <p><strong>Risk:</strong> {item.risk_score}</p>
                 <p><strong>Reason:</strong> {item.reason}</p>
                 <p><strong>Latency:</strong> {item.response_time_ms} ms</p>
-                <p><strong>Price:</strong> {item.unit_price} USDC</p>
+                <div className="validator-footer">
+                  <span className="price-tag">{item.unit_price} USDC</span>
+                  {item.payment_status === "paid" && (
+                     <span className="settled-tag">⚡ Settled</span>
+                  )}
+                </div>
               </div>
             ))}
           </div>
