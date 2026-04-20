@@ -10,10 +10,14 @@ class CircleService:
         self.base_url = settings.CIRCLE_API_URL
         self.entity_secret_ciphertext = settings.CIRCLE_ENTITY_SECRET_CIPHERTEXT
         self.headers = {
-            "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
             "Accept": "application/json"
         }
+        # Support for Modular SDK KIT_KEY
+        if self.api_key.startswith("KIT_KEY:"):
+            self.headers["X-Kit-Key"] = self.api_key
+        else:
+            self.headers["Authorization"] = f"Bearer {self.api_key}"
 
     async def create_wallet_set(self, name: str):
         """Creates a new Wallet Set for developer-controlled wallets."""

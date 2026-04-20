@@ -47,7 +47,7 @@ async function main() {
     apiKey,
     entitySecret,
     recoveryFileDownloadPath: OUTPUT_DIR,
-    baseUrl: 'https://api-sandbox.circle.com'
+    baseUrl: 'https://modular-sdk.circle.com/v1/rpc/w3s/buidl'
   });
   
   const envPath = path.join(__dirname, ".env");
@@ -63,7 +63,7 @@ async function main() {
   const client = initiateDeveloperControlledWalletsClient({
     apiKey,
     entitySecret,
-    baseUrl: 'https://api-sandbox.circle.com'
+    baseUrl: 'https://modular-sdk.circle.com/v1/rpc/w3s/buidl'
   });
   const walletSet = (await client.createWalletSet({ name: WALLET_SET_NAME }))
     .data?.walletSet;
