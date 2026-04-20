@@ -17,7 +17,7 @@ class CircleService:
 
     async def create_wallet_set(self, name: str):
         """Creates a new Wallet Set for developer-controlled wallets."""
-        url = f"{self.base_url}/v1/developer/walletSets"
+        url = f"{self.base_url}/v1/w3s/developer/walletSets"
         payload = {
             "idempotencyKey": str(uuid.uuid4()),
             "name": name,
@@ -30,7 +30,7 @@ class CircleService:
 
     async def create_wallets(self, wallet_set_id: str, count: int = 1, blockchain: str = "ARC-TESTNET"):
         """Creates Developer-Controlled wallets in a wallet set."""
-        url = f"{self.base_url}/v1/developer/wallets"
+        url = f"{self.base_url}/v1/w3s/developer/wallets"
         payload = {
             "idempotencyKey": str(uuid.uuid4()),
             "walletSetId": wallet_set_id,
@@ -45,7 +45,7 @@ class CircleService:
 
     async def sign_typed_data(self, wallet_id: str, typed_data: dict):
         """Signs EIP-712 typed data using the developer signing API with polling."""
-        url = f"{self.base_url}/v1/developer/sign/typedData"
+        url = f"{self.base_url}/v1/w3s/developer/sign/typedData"
         payload = {
             "idempotencyKey": str(uuid.uuid4()),
             "walletId": wallet_id,
@@ -58,7 +58,7 @@ class CircleService:
             job_id = resp.json()["data"]["id"]
             
             # Poll for the signature result
-            status_url = f"{self.base_url}/v1/developer/transactions/{job_id}"
+            status_url = f"{self.base_url}/v1/w3s/developer/transactions/{job_id}"
             max_attempts = 30
             for _ in range(max_attempts):
                 status_resp = await client.get(status_url, headers=self.headers)

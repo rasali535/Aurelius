@@ -51,8 +51,6 @@ async def process_prompt_run(db, prompt: str):
 
     validation_results = []
     total_cost = 0.0
-
-    validation_tasks = []
     
     async def run_single_validator(validator):
         validator_agent = await db.agents.find_one({"_id": validator["id"]})
@@ -110,6 +108,7 @@ async def process_prompt_run(db, prompt: str):
             "tx_hash": tx_hash,
             "payment_signature": payment_sig,
             "x402_status": payment_status,
+            "erc8004_trust_score": validator.get("reputation_score", 90), # Identity & Trust Layer
             "created_at": utc_now(),
             "settled_at": utc_now() if payment_status == "paid" else None
         }

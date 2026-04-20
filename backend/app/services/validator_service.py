@@ -1,5 +1,6 @@
 import random
 import time
+from app.services.circle_service import circle_service
 
 VALIDATORS = [
     {
@@ -39,14 +40,11 @@ VALIDATORS = [
     },
 ]
 
-from app.services.circle_service import circle_service
-
 async def seed_validators(db):
     # Check if we have a wallet set for validators
     wallet_set_id = None
     existing_sets = await db.config.find_one({"_id": "circle_validator_wallet_set"})
     if not existing_sets:
-        # Note: This requires a valid entity secret ciphertext in .env
         try:
             new_set = await circle_service.create_wallet_set("Aurelius Validators")
             wallet_set_id = new_set["id"]
@@ -60,7 +58,6 @@ async def seed_validators(db):
     for validator in VALIDATORS:
         existing = await db.agents.find_one({"_id": validator["id"]})
         if not existing or not existing.get("wallet_id"):
-            # Create a real developer-controlled wallet for this validator
             try:
                 wallets = await circle_service.create_wallets(wallet_set_id, blockchain="ARC-TESTNET")
                 wallet_info = wallets[0]
@@ -79,6 +76,7 @@ async def seed_validators(db):
                     },
                     upsert=True,
                 )
+                print(f"Seeded Dev-Controlled wallet for {validator['name']}: {wallet_info['address']}")
             except Exception as e:
                 print(f"Failed to seed wallet for {validator['name']}: {e}")
 
@@ -92,16 +90,14 @@ async def run_validator(check_type: str, prompt: str, draft_response: str, payme
     # Verify the signature
     if not signing_payload or not x402_service.verify_signature(signing_payload, payment_sig):
         return {"status": "error", "reason": "Invalid payment signature"}
+    
     start = time.time()
-
+    
+    # Simple rule-based simulation for validation logic
     if check_type in ["hallucination", "hallucination_premium"]:
         risky = any(word in draft_response.lower() for word in ["always", "guaranteed", "cure"])
         status = "warning" if risky else "passed"
-        # Premium validator has a different risk score logic (simulated accuracy)
-        if check_type == "hallucination_premium":
-            risk_score = 0.85 if risky else round(random.uniform(0.01, 0.10), 2)
-        else:
-            risk_score = 0.72 if risky else round(random.uniform(0.05, 0.25), 2)
+        risk_score = 0.85 if risky else round(random.uniform(0.01, 0.10), 2)
         reason = "Potential factual overclaim detected" if risky else "No strong hallucination indicators found"
 
     elif check_type == "pii":

@@ -11,5 +11,5 @@ async def run_prompt(payload: PromptRequest):
 
 @router.post("/run-demo-batch")
 async def run_demo_batch():
-    # Calling the updated run_batch_demo which handles its own prompt list internally
-    return await run_batch_demo(db, count=10) # Run 10 prompts for a healthy batch demo
+    # 12 runs * 5 validators per run = 60 onchain transactions
+    return await run_batch_demo(db, count=12) 
