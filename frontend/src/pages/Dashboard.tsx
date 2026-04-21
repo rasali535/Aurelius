@@ -12,18 +12,16 @@ export default function Dashboard({ onBack }: { onBack: () => void }) {
   const [run, setRun] = useState<PromptRunResponse | null>(null);
   const [routerResult, setRouterResult] = useState<any | null>(null);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
-  const [isSimulating, setIsSimulating] = useState(true); // Default to automatic
+  const [isSimulating, setIsSimulating] = useState(true); 
+  const [isBatchRunning, setIsBatchRunning] = useState(false);
+  const [batchProgress, setBatchProgress] = useState(0);
 
   const mockSummary: DashboardSummary = {
     total_prompt_runs: 128,
     total_validations: 842,
     total_payments: 1024,
     total_spend_usdc: 0.84,
-    latest_transactions: [
-      { id: "1", amount_usdc: 0.0001, status: "settled", tx_hash: "0x34a...b12", settled_at: new Date().toISOString() },
-      { id: "2", amount_usdc: 0.0005, status: "settled", tx_hash: "0x78e...fde", settled_at: new Date().toISOString() },
-      { id: "3", amount_usdc: 0.0002, status: "settled", tx_hash: "0x12c...a45", settled_at: new Date().toISOString() }
-    ]
+    latest_transactions: []
   };
 
   const fetchSummary = async () => {
@@ -44,21 +42,21 @@ export default function Dashboard({ onBack }: { onBack: () => void }) {
 
   useEffect(() => {
     let simInterval: any;
-    if (isSimulating) {
+    if (isSimulating && !isBatchRunning) {
       simInterval = setInterval(async () => {
         const tasks = [
           "Validate smart contract security",
           "Check PII in user data",
-          "Analyze cross-chain arbitrage opportunity",
+          "Analyze cross-chain arbitrage",
           "Verify identity of agent V-9",
-          "Route transaction to optimal liquidity pool"
+          "Route transaction to optimal liquidity"
         ];
         const randomTask = tasks[Math.floor(Math.random() * tasks.length)];
         handleRouterRun(randomTask);
-      }, 8000);
+      }, 10000);
     }
     return () => clearInterval(simInterval);
-  }, [isSimulating]);
+  }, [isSimulating, isBatchRunning]);
 
   const handleRouterRun = async (task: string) => {
     setRun(null);
@@ -70,12 +68,41 @@ export default function Dashboard({ onBack }: { onBack: () => void }) {
       console.warn("Router execution failed, using mock", err);
       setRouterResult({
         model_id: "meta-llama/Llama-3-70B-Instruct",
-        output: "Based on your request, I've analyzed the best path for decentralized identity implementation...",
-        price_usdc: 0.0008,
+        output: "Analysis complete. The specified workload is safe for deployment on Arc.",
+        price_usdc: 0.0080,
         status: "settled",
-        reasoning: "Complex architectural request requiring high reasoning capability."
+        reasoning: "High-security audit requested. Routed to Llama-3-70B for deep reasoning."
       });
     }
+  };
+
+  const startBatchDemo = async () => {
+    setIsBatchRunning(true);
+    setBatchProgress(0);
+    
+    // Start the heavy batch on the backend
+    api.post("/run-demo-batch").catch(e => console.error("Batch failed", e));
+    
+    // Simulate UI progress while polling summary
+    const duration = 15000; // 15s for the batch
+    const interval = 100;
+    const steps = duration / interval;
+    let currentStep = 0;
+    
+    const progressInterval = setInterval(() => {
+      currentStep++;
+      const progress = Math.min((currentStep / steps) * 100, 99);
+      setBatchProgress(progress);
+      
+      if (currentStep >= steps) {
+        clearInterval(progressInterval);
+        setBatchProgress(100);
+        setTimeout(() => {
+            setIsBatchRunning(false);
+            fetchSummary();
+        }, 1000);
+      }
+    }, interval);
   };
 
   return (
@@ -100,15 +127,42 @@ export default function Dashboard({ onBack }: { onBack: () => void }) {
         <div className="sidebar-diagnostics">
           <MetricsCards summary={summary} />
 
+          {/* Batch Demo Trigger */}
+          <div className="card batch-demo-panel">
+            <h3 style={{ fontSize: '0.86rem', color: 'var(--primary)', marginBottom: 8, letterSpacing: '0.05em' }}>HACKATHON_DEMO_SEQUENCE</h3>
+            <p style={{ fontSize: '0.7rem', opacity: 0.6, marginBottom: 15 }}>Execute 60+ on-chain settlements (12 runs × 5 nodes).</p>
+            
+            {isBatchRunning ? (
+                <div className="progress-section">
+                    <div className="progress-container">
+                        <div className="progress-bar" style={{ width: `${batchProgress}%` }}></div>
+                    </div>
+                    <div className="batch-status">
+                         <span className="blink">EXECUTING_SETTLEMENTS...</span>
+                         <span>{Math.round(batchProgress)}%</span>
+                    </div>
+                </div>
+            ) : (
+                <button 
+                  className="cyber-btn" 
+                  onClick={startBatchDemo}
+                  style={{ width: '100%', fontSize: '0.75rem', padding: '10px' }}
+                >
+                  START_BATCH_DEMO
+                </button>
+            )}
+          </div>
+
           <MarketTicker />
           
           <div className="card simulation-control">
-            <h3 style={{ fontSize: '0.9rem', letterSpacing: '0.1em', color: 'var(--primary)', marginBottom: '12px' }}>AUTO_PILOT_ENGINE</h3>
-            <p style={{ fontSize: '0.75rem', opacity: 0.6, marginBottom: '20px' }}>Automating agent commerce cycles via Featherless.</p>
+            <h3 style={{ fontSize: '0.86rem', color: 'var(--success)', marginBottom: '8px' }}>AUTO_PILOT_ENGINE</h3>
+            <p style={{ fontSize: '0.7rem', opacity: 0.6, marginBottom: '15px' }}>Cyclic agent commerce via Featherless API.</p>
             <button 
               className={isSimulating ? "danger" : "success"}
               onClick={() => setIsSimulating(!isSimulating)}
-              style={{ width: '100%', fontSize: '0.8rem' }}
+              style={{ width: '100%', fontSize: '0.75rem', padding: '10px' }}
+              disabled={isBatchRunning}
             >
               {isSimulating ? "SHUTDOWN_ENGINE" : "INIT_ENGINE"}
             </button>
@@ -117,10 +171,8 @@ export default function Dashboard({ onBack }: { onBack: () => void }) {
 
         {/* Center Column: Neural Core */}
         <div className="neural-core">
-          {/* Agent-to-Agent Payment Graph — always visible */}
-          <AgentPaymentFlow isLive={isSimulating} />
+          <AgentPaymentFlow isLive={isSimulating || isBatchRunning} />
 
-          {/* Router/Validator output when a task fires */}
           {(run || routerResult) && (
             <ValidatorPanel 
               run={run}
@@ -128,14 +180,14 @@ export default function Dashboard({ onBack }: { onBack: () => void }) {
             />
           )}
 
-          <div className="global-pulse-container" style={{ marginTop: '40px', opacity: 0.25 }}>
+          <div className="global-pulse-container" style={{ marginTop: '40px', opacity: 0.15 }}>
              <AgentNetworkGraphic />
           </div>
         </div>
 
         {/* Right Column: Transaction Log */}
         <div className="transaction-log-column">
-          <TransactionFeed summary={summary} isLive={isSimulating} />
+          <TransactionFeed summary={summary} isLive={isSimulating || isBatchRunning} />
         </div>
       </div>
     </div>

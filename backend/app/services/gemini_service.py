@@ -32,6 +32,10 @@ async def initiate_payment(amount_usdc: float, to_address: str, from_wallet_id: 
     Initiates a USDC settlement on the Arc network using the X402 gasless protocol.
     Requires the source wallet ID and address.
     """
+    # ---- Validation Guard ----
+    # Hackathon rule: per‑action price must stay ≤ 0.01 USDC.
+    if amount_usdc > 0.01:
+        raise ValueError("Per‑action amount must be ≤ 0.01 USDC")
     try:
         # 1. Generate x402 challenge
         challenge = x402_service.generate_challenge(

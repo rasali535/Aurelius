@@ -19,7 +19,7 @@ export type ValidatorResult = {
   tx_hash?: string;
 };
 
-export type TransactionItem = {
+export type Transaction = {
   id: string;
   amount_usdc: number;
   status: string;
@@ -34,5 +34,5 @@ export type DashboardSummary = {
   total_validations: number;
   total_payments: number;
   total_spend_usdc: number;
-  latest_transactions: TransactionItem[];
+  latest_transactions: Transaction[];
 };

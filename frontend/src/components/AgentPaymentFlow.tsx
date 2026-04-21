@@ -18,25 +18,28 @@ type AgentNode = {
 };
 
 const AGENTS: AgentNode[] = [
-  { id: "orchestrator", label: "ORCHESTRATOR", role: "Master Agent", x: 380, y: 60 },
-  { id: "validator_1",  label: "VALIDATOR_1",  role: "Toxicity Guard", x: 130, y: 200 },
-  { id: "validator_2",  label: "VALIDATOR_2",  role: "PII Guard",      x: 630, y: 200 },
-  { id: "router",       label: "ROUTER",        role: "Smart Router",  x: 380, y: 320 },
-  { id: "featherless",  label: "FEATHERLESS",   role: "Inference API", x: 380, y: 450 },
+  { id: "orchestrator", label: "ORCHESTRATOR",  role: "Master Agent",   x: 380, y: 55  },
+  { id: "validator_1",  label: "VALIDATOR_1",   role: "Toxicity Guard",  x: 80,  y: 210 },
+  { id: "validator_2",  label: "VALIDATOR_2",   role: "PII Shield",      x: 310, y: 210 },
+  { id: "validator_3",  label: "VALIDATOR_3",   role: "Bias Detector",   x: 540, y: 210 },
+  { id: "router",       label: "ARC_ROUTER",    role: "Smart Router",    x: 220, y: 370 },
+  { id: "featherless",  label: "FEATHERLESS",   role: "Inference API",   x: 490, y: 370 },
 ];
 
 const FLOWS = [
   { from: "orchestrator", to: "validator_1" },
   { from: "orchestrator", to: "validator_2" },
+  { from: "orchestrator", to: "validator_3" },
   { from: "orchestrator", to: "router" },
   { from: "router",       to: "featherless" },
 ];
 
 const MOCK_EVENTS: PaymentEvent[] = [
-  { id: "e1", from: "orchestrator", to: "validator_1", amount: 0.0001, status: "settled", timestamp: new Date().toISOString() },
-  { id: "e2", from: "orchestrator", to: "validator_2", amount: 0.0001, status: "settled", timestamp: new Date().toISOString() },
-  { id: "e3", from: "orchestrator", to: "router",      amount: 0.0003, status: "settled", timestamp: new Date().toISOString() },
-  { id: "e4", from: "router",       to: "featherless", amount: 0.0008, status: "settled", timestamp: new Date().toISOString() },
+  { id: "e1", from: "orchestrator", to: "validator_1", amount: 0.0050, status: "settled", timestamp: new Date().toISOString() },
+  { id: "e2", from: "orchestrator", to: "validator_2", amount: 0.0050, status: "settled", timestamp: new Date().toISOString() },
+  { id: "e3", from: "orchestrator", to: "validator_3", amount: 0.0050, status: "settled", timestamp: new Date().toISOString() },
+  { id: "e4", from: "orchestrator", to: "router",      amount: 0.0030, status: "settled", timestamp: new Date().toISOString() },
+  { id: "e5", from: "router",       to: "featherless", amount: 0.0080, status: "settled", timestamp: new Date().toISOString() },
 ];
 
 function getNode(id: string) {
@@ -56,7 +59,15 @@ export default function AgentPaymentFlow({ isLive }: Props) {
     const cycle = setInterval(() => {
       const flow = FLOWS[idxRef.current % FLOWS.length];
       setActiveFlow(`${flow.from}-${flow.to}`);
-      const amount = +(Math.random() * 0.001).toFixed(4);
+      // Realistic amounts matching the validator fee schedule
+      const amounts: Record<string, number> = {
+        "orchestrator-validator_1": 0.005,
+        "orchestrator-validator_2": 0.005,
+        "orchestrator-validator_3": 0.005,
+        "orchestrator-router":      0.003,
+        "router-featherless":        0.008,
+      };
+      const amount = amounts[`${flow.from}-${flow.to}`] ?? 0.001;
       setEvents((prev) => [
         {
           id: Date.now().toString(),
@@ -66,10 +77,10 @@ export default function AgentPaymentFlow({ isLive }: Props) {
           status: "settled",
           timestamp: new Date().toISOString(),
         },
-        ...prev.slice(0, 6),
+        ...prev.slice(0, 9),
       ]);
       idxRef.current++;
-    }, 2500);
+    }, 1800);
     return () => clearInterval(cycle);
   }, [isLive]);
 
@@ -100,15 +111,20 @@ export default function AgentPaymentFlow({ isLive }: Props) {
               LIVE
             </div>
           )}
-          <span style={{ fontFamily: "var(--terminal-font)", fontSize: "0.7rem", color: "var(--success)" }}>
-            TOTAL: ${totalFlow.toFixed(4)} USDC
-          </span>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontFamily: "var(--terminal-font)", fontSize: "0.7rem", color: "var(--success)" }}>
+              SETTLED: ${totalFlow.toFixed(4)} USDC
+            </div>
+            <div style={{ fontFamily: "var(--terminal-font)", fontSize: "0.6rem", color: "var(--text-muted)", marginTop: 2 }}>
+              MAX/ACTION: $0.01 · ARC GAS: ~$0.000001
+            </div>
+          </div>
         </div>
       </div>
 
       {/* SVG Flow Graph */}
       <div style={{ width: "100%", overflowX: "auto" }}>
-        <svg viewBox="0 0 760 560" width="100%" style={{ display: "block" }}>
+        <svg viewBox="0 0 760 500" width="100%" style={{ display: "block" }}>
           <defs>
             {/* Animated flow marker */}
             <marker id="arrowBlue" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
