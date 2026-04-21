@@ -18,5 +18,7 @@ class Settings:
     CIRCLE_APP_ID = os.getenv("CIRCLE_APP_ID")
     GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
     FEATHERLESS_API_KEY = os.getenv("FEATHERLESS_API_KEY")
+    AIML_API_KEY = os.getenv("AIML_API_KEY")
+    AIML_API_URL = os.getenv("AIML_API_URL", "https://api.aimlapi.com/v1")
 
 settings = Settings()
