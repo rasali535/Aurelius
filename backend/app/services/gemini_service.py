@@ -89,12 +89,25 @@ class GeminiService:
     async def chat_with_tools(self, prompt: str, chat_history=None):
         """
         Main entry point for agent reasoning and tool usage.
+        Fallbacks to Featherless (Llama 3 70B) if Gemini is unavailable.
         """
-        if not self.model:
-            return "Gemini API key is missing. Please configure it in the .env file."
+        if self.model:
+            try:
+                chat = self.model.start_chat(history=chat_history or [], enable_automatic_function_calling=True)
+                response = await chat.send_message_async(prompt)
+                return response.text
+            except Exception as e:
+                logger.warning(f"Gemini call failed, falling back to Featherless: {e}")
 
-        chat = self.model.start_chat(history=chat_history or [], enable_automatic_function_calling=True)
-        response = await chat.send_message_async(prompt)
-        return response.text
+        # Fallback to Featherless Llama-3-70B
+        from app.services.featherless_service import featherless_service
+        try:
+            return await featherless_service.run_inference(
+                model_id="meta-llama/Llama-3-70B-Instruct",
+                prompt=f"System: You are Aurelius, an AI orchestrator for the autonomous agent economy on Arc.\n\nUser: {prompt}"
+            )
+        except Exception as e:
+            logger.error(f"Reasoning fallback failed: {e}")
+            return "Execution failed. No reasoning model available."
 
 gemini_service = GeminiService()

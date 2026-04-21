@@ -318,9 +318,103 @@ button.secondary:hover {
   opacity: 0.6;
 }
 
+/* Landing Page Specific Styles */
+.landing-hero {
+  height: 80vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  margin-top: -40px;
+}
+
+.hero-content {
+  z-index: 10;
+  max-width: 800px;
+  animation: fadeIn 0.8s ease-out;
+}
+
+.hero-title {
+  font-size: 5rem;
+  line-height: 1.1;
+  margin-bottom: 24px;
+}
+
+.hero-image {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 120%;
+  opacity: 0.3;
+  filter: blur(80px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+.track-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 32px;
+  margin: 64px 0;
+}
+
+.track-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.track-card h3 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.25rem;
+  color: var(--primary);
+  margin-bottom: 16px;
+}
+
+.proof-section {
+  padding: 80px 0;
+  border-top: 1px solid var(--card-border);
+}
+
+.proof-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  align-items: center;
+}
+
+.comparison-card {
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 24px;
+  padding: 40px;
+  border: 1px solid var(--error);
+}
+
+.comparison-card.success-proof {
+  border-color: var(--success);
+}
+
+.nav-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 0;
+  margin-bottom: 40px;
+}
+
+.logo-text {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  text-decoration: none;
+  color: #fff;
+}
+
 @media (max-width: 900px) {
-  .metrics-grid,
-  .grid-two {
-    grid-template-columns: 1fr;
-  }
+  .hero-title { font-size: 3rem; }
+  .proof-grid { grid-template-columns: 1fr; }
 }

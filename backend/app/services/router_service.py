@@ -71,6 +71,13 @@ class RouterService:
         # Sign 
         signature = await circle_service.sign_typed_data(requester["wallet_id"], signing_payload)
         
+        # Land on-chain transfer
+        tx_hash = await circle_service.transfer_tokens(
+            wallet_id=requester["wallet_id"],
+            destination_address=provider_wallet["wallet_address"],
+            amount=price_usdc
+        )
+        
         # --- Step 3: Execute Inference ---
         output = await featherless_service.run_inference(model_id, task_prompt)
 
@@ -82,6 +89,7 @@ class RouterService:
             "output": output,
             "price_usdc": price_usdc,
             "settlement_sig": signature,
+            "tx_hash": tx_hash,
             "routing_reasoning": decision.get("reasoning"),
             "created_at": utc_now()
         }
@@ -92,6 +100,7 @@ class RouterService:
             "output": output,
             "price_usdc": price_usdc,
             "status": "settled",
+            "tx_hash": tx_hash,
             "log_id": inference_log["_id"],
             "reasoning": decision.get("reasoning")
         }
