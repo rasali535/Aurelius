@@ -10,6 +10,8 @@ from app.routes.dashboard import router as dashboard_router
 from app.routes.validators import router as validators_router
 from app.routes.commerce import router as commerce_router
 from app.routes.router import router as task_router
+from app.routes.market import router as market_router
+from app.routes.playground import router as playground_router
 from app.services.validator_service import seed_validators
 from app.db import init_db
 
@@ -58,3 +60,4 @@ app.include_router(validators_router, prefix="/api")
 app.include_router(market_router, prefix="/api")
 app.include_router(commerce_router, prefix="/api/commerce")
 app.include_router(task_router, prefix="/api/router")
+app.include_router(playground_router, prefix="/api/playground")
