@@ -5,7 +5,7 @@
     "rootDirectory": "backend"
   },
   "deploy": {
-    "startCommand": "gunicorn -w 4 -k uvicorn.workers.UvicornWorker app.main:app --bind 0.0.0.0:${PORT:-8000}",
+    "startCommand": "gunicorn -w 4 -k uvicorn.workers.UvicornWorker app.main:app",
     "restartPolicyType": "ON_FAILURE"
   }
 }
