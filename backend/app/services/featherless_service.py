@@ -7,16 +7,22 @@ logger = logging.getLogger(__name__)
 # FEATHERLESS_MODELS defines the suitability and pricing (in USDC)
 FEATHERLESS_MODELS = [
     {
-        "id": "meta-llama/Llama-3-8B-Instruct",
+        "id": "meta-llama/Meta-Llama-3-8B-Instruct",
         "category": "general",
         "price_per_inference_usdc": 0.0001,
         "description": "Fast, balanced model for common tasks."
     },
     {
-        "id": "meta-llama/Llama-3-70B-Instruct",
+        "id": "meta-llama/Meta-Llama-3.1-70B-Instruct",
         "category": "reasoning",
         "price_per_inference_usdc": 0.0008,
-        "description": "High intelligence for complex reasoning and decomposition."
+        "description": "State-of-the-art Llama 3.1 model for complex reasoning."
+    },
+    {
+        "id": "meta-llama/Meta-Llama-3-70B-Instruct",
+        "category": "reasoning",
+        "price_per_inference_usdc": 0.0008,
+        "description": "High intelligence for complex reasoning."
     },
     {
         "id": "mistralai/Mixtral-8x7B-Instruct-v0.1",
@@ -47,7 +53,8 @@ class FeatherlessService:
         payload = {
             "model": model_id,
             "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.7
+            "temperature": 0.7,
+            "max_tokens": 1024
         }
         
         async with httpx.AsyncClient(timeout=60.0) as client:

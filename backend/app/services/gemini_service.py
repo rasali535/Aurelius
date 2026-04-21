@@ -107,7 +107,7 @@ class GeminiService:
         from app.services.featherless_service import featherless_service
         try:
             return await featherless_service.run_inference(
-                model_id="meta-llama/Llama-3-70B-Instruct",
+                model_id="meta-llama/Meta-Llama-3.1-70B-Instruct",
                 prompt=f"System: You are Aurelius, an AI orchestrator for the autonomous agent economy on Arc.\n\nUser: {prompt}"
             )
         except Exception as e:
