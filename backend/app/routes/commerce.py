@@ -1,5 +1,7 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from app.services.circle_service import circle_service
+from app.db import db
 from app.services.gemini_service import gemini_service
 from typing import List, Optional
 
@@ -19,7 +21,6 @@ async def agent_chat(payload: ChatRequest):
     Agent-driven workflow for commerce and coordination.
     Uses Gemini to handle reasoning and Circle tools for value settlement.
     """
-    # Convert history back to Gemini format if provided
     history = []
     if payload.history:
         for msg in payload.history:
@@ -30,3 +31,37 @@ async def agent_chat(payload: ChatRequest):
             
     response = await gemini_service.chat_with_tools(payload.message, history)
     return {"response": response}
+
+class ManualPaymentRequest(BaseModel):
+    destination_wallet_id: str
+    amount: float
+
+@router.post("/manual-payment")
+async def manual_payment(payload: ManualPaymentRequest):
+    """
+    Manually triggers an on-chain USDC settlement from the default requester wallet.
+    """
+    try:
+        # Get the default requester wallet
+        requester = await db.config.find_one({"_id": "requester_wallet"})
+        if not requester:
+            # If not exists, try to find any wallet or create one
+            wallets = await circle_service.list_wallets()
+            if wallets:
+                requester = {
+                    "wallet_id": wallets[0]["id"],
+                    "wallet_address": wallets[0]["address"]
+                }
+            else:
+                raise Exception("No requester wallet configured. Run a demo task first.")
+
+        # Execute transfer
+        tx_hash = await circle_service.transfer_tokens(
+            wallet_id=requester["wallet_id"],
+            destination_address=payload.destination_wallet_id,
+            amount=payload.amount
+        )
+        
+        return {"status": "success", "tx_hash": tx_hash}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

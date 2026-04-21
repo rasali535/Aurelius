@@ -5,7 +5,7 @@ import TransactionFeed from "../components/TransactionFeed";
 import AgentNetworkGraphic from "../components/AgentNetworkGraphic";
 import MarketTicker from "../components/MarketTicker";
 import AgentPaymentFlow from "../components/AgentPaymentFlow";
-import MongoPlayground from "../components/MongoPlayground";
+import ManualPaymentPanel from "../components/ManualPaymentPanel";
 import { api } from "../services/api";
 import type { DashboardSummary, PromptRunResponse } from "../types";
 
@@ -16,7 +16,6 @@ export default function Dashboard({ onBack }: { onBack: () => void }) {
   const [isSimulating, setIsSimulating] = useState(true); 
   const [isBatchRunning, setIsBatchRunning] = useState(false);
   const [batchProgress, setBatchProgress] = useState(0);
-  const [showPlayground, setShowPlayground] = useState(false);
 
 
   const fetchSummary = async () => {
@@ -102,9 +101,6 @@ export default function Dashboard({ onBack }: { onBack: () => void }) {
           <div className="status-bit">SYSTEM: <span style={{ color: 'var(--success)' }}>ONLINE</span></div>
           <div className="status-bit">NETWORK: <span style={{ color: 'var(--primary)' }}>ARC_TESTNET</span></div>
           <div className="status-bit">AUTO-PILOT: <span style={{ color: 'var(--secondary)' }}>{isSimulating ? 'ENABLED' : 'DISABLED'}</span></div>
-          <div className="status-bit" style={{ cursor: 'pointer', border: '1px solid var(--primary-low)', padding: '0 8px' }} onClick={() => setShowPlayground(!showPlayground)}>
-            DB_PLAYGROUND: <span style={{ color: showPlayground ? 'var(--success)' : 'var(--primary-low)' }}>{showPlayground ? 'VISIBLE' : 'HIDDEN'}</span>
-          </div>
         </div>
         <div className="system-identity">
           <h1>AURELIUS_CORE_v1.0</h1>
@@ -144,6 +140,8 @@ export default function Dashboard({ onBack }: { onBack: () => void }) {
           </div>
 
           <MarketTicker />
+
+          <ManualPaymentPanel />
           
           <div className="card simulation-control">
             <h3 style={{ fontSize: '0.86rem', color: 'var(--success)', marginBottom: '8px' }}>AUTO_PILOT_ENGINE</h3>
@@ -168,12 +166,6 @@ export default function Dashboard({ onBack }: { onBack: () => void }) {
               run={run}
               routerResult={routerResult}
             />
-          )}
-
-          {showPlayground && (
-            <div style={{ marginBottom: '30px' }}>
-              <MongoPlayground />
-            </div>
           )}
 
           <div className="global-pulse-container" style={{ marginTop: '40px', opacity: 0.15 }}>
