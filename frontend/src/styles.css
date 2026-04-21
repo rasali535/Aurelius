@@ -418,3 +418,68 @@ button.secondary:hover {
   .hero-title { font-size: 3rem; }
   .proof-grid { grid-template-columns: 1fr; }
 }
+
+/* Simulation Mode Styles */
+.simulation-control {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(61, 126, 255, 0.05) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.simulation-control h3 {
+  color: var(--success);
+  margin-bottom: 8px;
+}
+
+button.success {
+  background: var(--success);
+}
+
+button.success:hover {
+  background: #059669;
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+}
+
+button.danger {
+  background: var(--error);
+}
+
+button.danger:hover {
+  background: #dc2626;
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+}
+
+/* Live Blink Indicator */
+.live-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--success);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.blink {
+  width: 8px;
+  height: 8px;
+  background: var(--success);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--success);
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(0.95); opacity: 0.5; }
+  70% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.5; }
+}
+
+.new-tx-animate {
+  animation: highlightNew 2s ease-out;
+}
+
+@keyframes highlightNew {
+  0% { background: rgba(16, 185, 129, 0.1); }
+  100% { background: transparent; }
+}

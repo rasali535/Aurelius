@@ -7,7 +7,7 @@ function App() {
   const [inApp, setInApp] = useState(false);
 
   return inApp ? (
-    <Dashboard />
+    <Dashboard onBack={() => setInApp(false)} />
   ) : (
     <LandingPage onEnterApp={() => setInApp(true)} />
   );

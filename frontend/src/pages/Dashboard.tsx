@@ -6,11 +6,12 @@ import TransactionFeed from "../components/TransactionFeed";
 import { api } from "../services/api";
 import type { DashboardSummary, PromptRunResponse } from "../types";
 
-export default function Dashboard() {
+export default function Dashboard({ onBack }: { onBack: () => void }) {
   const [loading, setLoading] = useState(false);
   const [run, setRun] = useState<PromptRunResponse | null>(null);
   const [routerResult, setRouterResult] = useState<any | null>(null);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [isSimulating, setIsSimulating] = useState(false);
 
   const mockSummary: DashboardSummary = {
     total_prompt_runs: 128,
@@ -36,9 +37,27 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchSummary();
-    const interval = setInterval(fetchSummary, 60000); 
+    const interval = setInterval(fetchSummary, 3000); 
     return () => clearInterval(interval);
   }, [summary]);
+
+  useEffect(() => {
+    let simInterval: any;
+    if (isSimulating) {
+      simInterval = setInterval(async () => {
+        const tasks = [
+          "Validate smart contract security",
+          "Check PII in user data",
+          "Analyze cross-chain arbitrage opportunity",
+          "Verify identity of agent V-9",
+          "Route transaction to optimal liquidity pool"
+        ];
+        const randomTask = tasks[Math.floor(Math.random() * tasks.length)];
+        handleRouterRun(randomTask);
+      }, 8000);
+    }
+    return () => clearInterval(simInterval);
+  }, [isSimulating]);
 
   const handleRun = async (prompt: string) => {
     setLoading(true);
@@ -102,11 +121,14 @@ export default function Dashboard() {
 
   return (
     <div className="page fade-in">
-      <header>
-        <h1>Aurelius</h1>
-        <p className="subtitle">
-          Autonomous AI Infrastructure with Native USDC Value Settlement on Arc.
-        </p>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '48px' }}>
+        <div>
+          <h1>Aurelius</h1>
+          <p className="subtitle" style={{ marginBottom: 0 }}>
+            Autonomous AI Infrastructure with Native USDC Value Settlement on Arc.
+          </p>
+        </div>
+        <button className="secondary" onClick={onBack}>← Back to Home</button>
       </header>
 
       <MetricsCards summary={summary} />
@@ -119,12 +141,26 @@ export default function Dashboard() {
         </p>
       </section>
 
-      <PromptForm 
-        onRun={handleRun} 
-        onRouterRun={handleRouterRun}
-        onBatchRun={handleBatchRun} 
-        loading={loading} 
-      />
+      <div style={{ display: 'flex', gap: '20px', alignItems: 'center', marginBottom: '24px' }}>
+        <PromptForm 
+          onRun={handleRun} 
+          onRouterRun={handleRouterRun}
+          onBatchRun={handleBatchRun} 
+          loading={loading} 
+        />
+        <div className="card simulation-control" style={{ margin: 0, flex: 1, textAlign: 'center' }}>
+          <h3>🤖 Simulation Mode</h3>
+          <p style={{ fontSize: '0.8rem', opacity: 0.7, marginBottom: '12px' }}>
+            Automate autonomous agent commerce cycles using Featherless.
+          </p>
+          <button 
+            className={isSimulating ? "danger" : "success"}
+            onClick={() => setIsSimulating(!isSimulating)}
+          >
+            {isSimulating ? "Stop Simulation" : "Start Simulation"}
+          </button>
+        </div>
+      </div>
 
       <div className="grid-two">
         <div className="content-panel">
@@ -152,7 +188,7 @@ export default function Dashboard() {
             </div>
           )}
         </div>
-        <TransactionFeed summary={summary} />
+        <TransactionFeed summary={summary} isLive={isSimulating} />
       </div>
     </div>
   );
