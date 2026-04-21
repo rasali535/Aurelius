@@ -1,18 +1,20 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;700&display=swap');
 
 :root {
-  --primary: #3d7eff;
-  --primary-glow: rgba(61, 126, 255, 0.5);
-  --secondary: #8a2be2;
-  --secondary-glow: rgba(138, 43, 226, 0.4);
-  --background: #020617;
-  --card-bg: rgba(15, 23, 42, 0.6);
-  --card-border: rgba(255, 255, 255, 0.08);
-  --text-main: #f8fafc;
-  --text-muted: #94a3b8;
-  --success: #10b981;
-  --error: #ef4444;
-  --warning: #f59e0b;
+  --primary: #00f2ff; /* Cyber Blue */
+  --primary-glow: rgba(0, 242, 255, 0.2);
+  --secondary: #7000ff; /* Neon Purple */
+  --secondary-glow: rgba(112, 0, 255, 0.15);
+  --background: #050510;
+  --panel-bg: rgba(10, 10, 25, 0.8);
+  --panel-border: rgba(0, 242, 255, 0.15);
+  --text-main: #e0faff;
+  --text-muted: #60808a;
+  --success: #00ff9d; /* Matrix Green */
+  --error: #ff0055;
+  --warning: #ffae00;
+  --accent: #5e00ff;
+  --terminal-font: 'Input Mono', 'Fira Code', 'Courier New', monospace;
 }
 
 * {
@@ -25,9 +27,24 @@ body {
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   background-color: var(--background);
   color: var(--text-main);
-  min-height: 100vh;
+  background-image: 
+    linear-gradient(rgba(0, 242, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 242, 255, 0.03) 1px, transparent 1px);
+  background-size: 50px 50px;
   overflow-x: hidden;
-  line-height: 1.6;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
+  z-index: 9999;
+  background-size: 100% 2px, 3px 100%;
+  pointer-events: none;
 }
 
 /* Background Effects */
@@ -74,16 +91,35 @@ h1 {
   max-width: 600px;
 }
 
-/* Card Styling with Glassmorphism */
+/* Panel Styling (Cyberdeck Style) */
 .card {
-  background: var(--card-bg);
-  backdrop-filter: blur(12px);
-  border: 1px solid var(--card-border);
-  border-radius: 24px;
-  padding: 32px;
-  margin-bottom: 32px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 24px -1px rgba(0, 0, 0, 0.2);
+  background: var(--panel-bg);
+  backdrop-filter: blur(15px);
+  border: 1px solid var(--panel-border);
+  border-radius: 4px; /* Industrial Sharpness */
+  padding: 24px;
+  margin-bottom: 24px;
+  position: relative;
+  clip-path: polygon(
+    0 0, 
+    calc(100% - 15px) 0, 
+    100% 15px, 
+    100% 100%, 
+    15px 100%, 
+    0 calc(100% - 15px)
+  );
+  box-shadow: inset 0 0 15px rgba(0, 242, 255, 0.05);
+}
+
+.card::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 40px;
+  height: 2px;
+  background: var(--primary);
+  box-shadow: 0 0 10px var(--primary);
 }
 
 .card:hover {
@@ -139,10 +175,12 @@ h1 {
 }
 
 .metric-card strong {
-  font-size: 2rem;
+  font-size: 2.25rem;
   font-family: 'Outfit', sans-serif;
   color: #fff;
   display: block;
+  letter-spacing: -0.02em;
+  font-weight: 700;
 }
 
 /* Inputs & Form */
@@ -469,6 +507,33 @@ button.danger:hover {
   animation: pulse 1.5s infinite;
 }
 
+/* Floating Orbs */
+.glowing-blob {
+  position: fixed;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, var(--primary-glow) 0%, transparent 70%);
+  border-radius: 50%;
+  z-index: -2;
+  filter: blur(100px);
+  animation: moveBlob 20s infinite alternate;
+}
+
+.blob-1 { top: -100px; left: -100px; background: radial-gradient(circle, var(--primary-glow) 0%, transparent 70%); }
+.blob-2 { bottom: -100px; right: -100px; background: radial-gradient(circle, var(--secondary-glow) 0%, transparent 70%); }
+
+@keyframes moveBlob {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(100px, 100px) scale(1.2); }
+}
+
+.hero-graphic-wrapper {
+  margin-top: 60px;
+  width: 100%;
+  height: 300px;
+  opacity: 0.8;
+}
+
 @keyframes pulse {
   0% { transform: scale(0.95); opacity: 0.5; }
   70% { transform: scale(1.1); opacity: 1; }
@@ -482,4 +547,175 @@ button.danger:hover {
 @keyframes highlightNew {
   0% { background: rgba(16, 185, 129, 0.1); }
   100% { background: transparent; }
+}
+
+/* Cyberdeck Layout Classes */
+.cyber-dashboard {
+  padding: 20px;
+  max-width: 1800px;
+  margin: 0 auto;
+}
+
+.cyber-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 40px;
+  padding: 15px 30px;
+  background: rgba(0, 242, 255, 0.05);
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+}
+
+.system-status {
+  display: flex;
+  gap: 30px;
+  font-family: var(--terminal-font);
+  font-size: 0.8rem;
+}
+
+.status-bit {
+  letter-spacing: 0.1em;
+}
+
+.system-identity h1 {
+  font-family: var(--terminal-font);
+  font-size: 1.25rem;
+  margin: 0;
+  color: var(--primary);
+  text-shadow: 0 0 10px var(--primary-glow);
+}
+
+.dashboard-grid-cyber {
+  display: grid;
+  grid-template-columns: 320px 1fr 380px;
+  gap: 30px;
+  align-items: start;
+}
+
+.cyber-btn {
+  background: transparent;
+  border: 1px solid var(--primary);
+  color: var(--primary);
+  font-family: var(--terminal-font);
+  letter-spacing: 0.1em;
+  padding: 12px;
+  transition: all 0.3s;
+}
+
+.cyber-btn:hover {
+  background: var(--primary);
+  color: var(--background);
+  box-shadow: 0 0 20px var(--primary-glow);
+}
+
+.neural-core {
+  min-height: 600px;
+}
+
+.text-success { color: var(--success); }
+.text-primary { color: var(--primary); }
+.text-secondary { color: var(--secondary); }
+
+@media (max-width: 1200px) {
+  .dashboard-grid-cyber {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Market Ticker Panel */
+.market-ticker-panel {
+  padding: 20px !important;
+}
+
+.ticker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.ticker-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.ticker-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(0, 242, 255, 0.03);
+  border: 1px solid rgba(0, 242, 255, 0.08);
+  border-radius: 4px;
+  transition: border-color 0.2s;
+}
+
+.ticker-row:hover {
+  border-color: var(--panel-border);
+}
+
+.ticker-symbol {
+  font-family: var(--terminal-font);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  width: 50px;
+}
+
+.ticker-price {
+  font-family: var(--terminal-font);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.ticker-change {
+  font-family: var(--terminal-font);
+  font-size: 0.75rem;
+  font-weight: 600;
+  width: 75px;
+  text-align: right;
+}
+
+.ticker-context {
+  border-top: 1px solid var(--panel-border);
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.context-row {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--terminal-font);
+}
+
+.loading-blink {
+  opacity: 0.4;
+  animation: blink-text 1s infinite;
+}
+
+@keyframes blink-text {
+  50% { opacity: 0.1; }
+}
+
+/* Agent Payment Flow */
+.agent-payment-card {
+  overflow: hidden;
+}
+
+.payment-event-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(0, 242, 255, 0.03);
+  border: 1px solid rgba(0, 242, 255, 0.06);
+  border-radius: 4px;
 }

@@ -1,3 +1,5 @@
+import AgentNetworkGraphic from "../components/AgentNetworkGraphic";
+
 type Props = {
   onEnterApp: () => void;
 };
@@ -20,6 +22,10 @@ export default function LandingPage({ onEnterApp }: Props) {
           <button style={{ padding: '18px 40px', fontSize: '1.25rem' }} onClick={onEnterApp}>
             Get Started with Aurelius
           </button>
+          
+          <div className="hero-graphic-wrapper">
+             <AgentNetworkGraphic />
+          </div>
         </div>
       </section>
 
