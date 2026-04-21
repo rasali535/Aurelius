@@ -16,21 +16,13 @@ export default function Dashboard({ onBack }: { onBack: () => void }) {
   const [isBatchRunning, setIsBatchRunning] = useState(false);
   const [batchProgress, setBatchProgress] = useState(0);
 
-  const mockSummary: DashboardSummary = {
-    total_prompt_runs: 128,
-    total_validations: 842,
-    total_payments: 1024,
-    total_spend_usdc: 0.84,
-    latest_transactions: []
-  };
 
   const fetchSummary = async () => {
     try {
       const res = await api.get("/dashboard/summary");
       setSummary(res.data);
     } catch (err) {
-      console.warn("API unavailable, switching to mock data", err);
-      if (!summary) setSummary(mockSummary);
+      console.error("Critical: Summary data fetch failed", err);
     }
   };
 
@@ -65,14 +57,7 @@ export default function Dashboard({ onBack }: { onBack: () => void }) {
       setRouterResult(res.data);
       await fetchSummary();
     } catch (err) {
-      console.warn("Router execution failed, using mock", err);
-      setRouterResult({
-        model_id: "meta-llama/Llama-3-70B-Instruct",
-        output: "Analysis complete. The specified workload is safe for deployment on Arc.",
-        price_usdc: 0.0080,
-        status: "settled",
-        reasoning: "High-security audit requested. Routed to Llama-3-70B for deep reasoning."
-      });
+      console.error("Router execution failed", err);
     }
   };
 

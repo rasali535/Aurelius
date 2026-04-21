@@ -20,5 +20,6 @@ class Settings:
     FEATHERLESS_API_KEY = os.getenv("FEATHERLESS_API_KEY")
     AIML_API_KEY = os.getenv("AIML_API_KEY")
     AIML_API_URL = os.getenv("AIML_API_URL", "https://api.aimlapi.com/v1")
+    MOCK_PAYMENTS = os.getenv("MOCK_PAYMENTS", "false").lower() == "true"
 
 settings = Settings()

@@ -7,4 +7,3 @@ httpx
 eth-account
 cryptography
 mongomock
-google-generativeai

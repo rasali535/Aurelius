@@ -1,5 +1,6 @@
 import uuid
 import asyncio
+from app.config import settings
 from app.utils import generate_id, utc_now
 from app.services.validator_service import VALIDATORS, run_validator
 from app.services.circle_service import circle_service
@@ -28,6 +29,20 @@ async def get_or_create_requester_wallet(db):
     existing = await db.config.find_one({"_id": "requester_wallet"})
     if existing:
         return existing
+    
+    # Priority: Use Circle Master Wallet if provided in config
+    if settings.CIRCLE_MASTER_WALLET_ID:
+        try:
+            address = await circle_service.get_wallet_address(settings.CIRCLE_MASTER_WALLET_ID)
+            wallet_doc = {
+                "_id": "requester_wallet",
+                "wallet_id": settings.CIRCLE_MASTER_WALLET_ID,
+                "wallet_address": address,
+            }
+            await db.config.insert_one(wallet_doc)
+            return wallet_doc
+        except Exception as e:
+            print(f"Failed to use master wallet: {e}. Falling back to creation.")
     
     # Create a new wallet set and wallet for the requester
     wallet_set = await circle_service.create_wallet_set("Aurelius Requester")
@@ -112,10 +127,6 @@ async def process_prompt_run(db, prompt: str):
 
         # Track payment event
         payment_status = "paid" if payment_sig and result["status"] != "error" else ("free" if not payment_sig else "failed")
-        # If tx_hash starts with 0x and is not 'FAILED', it's valid
-        if tx_hash and (tx_hash.startswith("FAILED") or tx_hash.startswith("PENDING")):
-             # Fallback to mock for UI stability if the real one failed during demo preparation
-             tx_hash = f"0x{uuid.uuid4().hex}{uuid.uuid4().hex}"[:66]
         
         payment_event = {
             "_id": generate_id("pay"),

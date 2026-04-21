@@ -1,5 +1,4 @@
 import httpx
-import google.generativeai as genai
 from app.config import settings
 from app.services.circle_service import circle_service
 from app.services.x402_service import x402_service
@@ -71,6 +70,7 @@ class GeminiService:
     def __init__(self):
         self.api_key = settings.AIML_API_KEY
         self.base_url = settings.AIML_API_URL
+        # Try a more standard model name if the previous one failed
         self.default_model = "google/gemini-2.0-flash"
         
         if not self.api_key:
@@ -203,7 +203,7 @@ class GeminiService:
         try:
             logger.info("Using Featherless fallback reasoning engine")
             return await featherless_service.run_inference(
-                model_id="meta-llama/Meta-Llama-3.1-70B-Instruct",
+                model_id="mistralai/Mistral-7B-Instruct-v0.2",
                 prompt=f"System: You are Aurelius, an AI orchestrator for the autonomous agent economy on Arc.\n\nUser: {prompt}"
             )
         except Exception as e:

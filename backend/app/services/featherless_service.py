@@ -7,34 +7,22 @@ logger = logging.getLogger(__name__)
 # FEATHERLESS_MODELS defines the suitability and pricing (in USDC)
 FEATHERLESS_MODELS = [
     {
-        "id": "meta-llama/Meta-Llama-3-8B-Instruct",
+        "id": "mistralai/Mistral-7B-Instruct-v0.2",
         "category": "general",
         "price_per_inference_usdc": 0.0001,
-        "description": "Fast, balanced model for common tasks."
-    },
-    {
-        "id": "meta-llama/Meta-Llama-3.1-70B-Instruct",
-        "category": "reasoning",
-        "price_per_inference_usdc": 0.0008,
-        "description": "State-of-the-art Llama 3.1 model for complex reasoning."
-    },
-    {
-        "id": "meta-llama/Meta-Llama-3-70B-Instruct",
-        "category": "reasoning",
-        "price_per_inference_usdc": 0.0008,
-        "description": "High intelligence for complex reasoning."
+        "description": "Fast, reliable model for common tasks."
     },
     {
         "id": "mistralai/Mixtral-8x7B-Instruct-v0.1",
-        "category": "coding",
+        "category": "reasoning",
         "price_per_inference_usdc": 0.0005,
-        "description": "Excellent for code generation and technical tasks."
+        "description": "High intelligence for complex reasoning."
     },
     {
         "id": "microsoft/Phi-3-mini-4k-instruct",
         "category": "fast",
         "price_per_inference_usdc": 0.00005,
-        "description": "Ultra-fast, lowest cost for simple classification or summaries."
+        "description": "Ultra-fast, lowest cost."
     }
 ]
 
@@ -54,7 +42,7 @@ class FeatherlessService:
             "model": model_id,
             "messages": [{"role": "user", "content": prompt}],
             "temperature": 0.7,
-            "max_tokens": 1024
+            "max_tokens": 512
         }
         
         async with httpx.AsyncClient(timeout=60.0) as client:

@@ -71,6 +71,15 @@ class CircleService:
             resp.raise_for_status()
             return resp.json()["data"]["wallets"]
 
+    async def get_wallet_address(self, wallet_id: str):
+        url = f"{self.base_url}/v1/w3s/developer/wallets/{wallet_id}"
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, headers=self.headers)
+            if resp.status_code >= 400:
+                print(f"CIRCLE API ERROR ({resp.status_code}) in get_wallet_address: {resp.text}")
+            resp.raise_for_status()
+            return resp.json()["data"]["wallet"]["address"]
+
     async def sign_typed_data(self, wallet_id: str, typed_data: dict):
         url = f"{self.base_url}/v1/w3s/developer/sign/typedData"
         payload = {
@@ -112,6 +121,11 @@ class CircleService:
 
     async def transfer_tokens(self, wallet_id: str, destination_address: str, amount: float, blockchain: str = "ARC-TESTNET"):
         """Executes an on-chain USDC transfer."""
+        if settings.MOCK_PAYMENTS:
+            mock_tx = f"0x_mock_{uuid.uuid4().hex}"
+            print(f"MOCK_PAYMENTS active: Simulating transfer of {amount} USDC to {destination_address}. TX: {mock_tx}")
+            return mock_tx
+
         # Official Circle Token ID for USDC on Arc Testnet
         token_id = "15dc2b5d-0994-58b0-bf8c-3a0501148ee8" 
         
