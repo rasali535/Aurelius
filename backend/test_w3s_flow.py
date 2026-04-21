@@ -18,6 +18,10 @@ async def main():
     
     print("Database initialized.")
     
+    # Inject existing Circle set IDs to avoid 404 creation errors and use funded wallets
+    await initialized_db.config.insert_one({"_id": "circle_requester_wallet_set", "id": "9bd61386-3d84-5c7b-b0d9-c673339a1072"})
+    await initialized_db.config.insert_one({"_id": "circle_validator_wallet_set", "id": "f9256fab-063f-5b64-85c4-de2aca7a27c1"})
+    
     # Seed Validators (using W3S flow)
     print("Seeding validators with W3S wallets...")
     await seed_validators(db)

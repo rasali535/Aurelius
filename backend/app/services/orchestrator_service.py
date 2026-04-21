@@ -30,19 +30,25 @@ async def get_or_create_requester_wallet(db):
     if existing:
         return existing
     
-    # Priority: Use Circle Master Wallet if provided in config
+    # Priority: Use Circle Master Wallet(s) if provided in config
+    print(f"DEBUG: CIRCLE_MASTER_WALLET_ID from settings: {settings.CIRCLE_MASTER_WALLET_ID}", flush=True)
     if settings.CIRCLE_MASTER_WALLET_ID:
-        try:
-            address = await circle_service.get_wallet_address(settings.CIRCLE_MASTER_WALLET_ID)
-            wallet_doc = {
-                "_id": "requester_wallet",
-                "wallet_id": settings.CIRCLE_MASTER_WALLET_ID,
-                "wallet_address": address,
-            }
-            await db.config.insert_one(wallet_doc)
-            return wallet_doc
-        except Exception as e:
-            print(f"Failed to use master wallet: {e}. Falling back to creation.")
+        # Support multiple wallets if comma-separated
+        wallet_ids = [wid.strip() for wid in settings.CIRCLE_MASTER_WALLET_ID.split(",") if wid.strip()]
+        for wallet_id in wallet_ids:
+            try:
+                address = await circle_service.get_wallet_address(wallet_id)
+                wallet_doc = {
+                    "_id": "requester_wallet",
+                    "wallet_id": wallet_id,
+                    "wallet_address": address,
+                }
+                await db.config.insert_one(wallet_doc)
+                return wallet_doc
+            except Exception as e:
+                print(f"Failed to use master wallet {wallet_id}: {e}")
+        
+        print("All provided master wallets failed. Falling back to creation.")
     
     # Create a new wallet set and wallet for the requester
     wallet_set = await circle_service.create_wallet_set("Aurelius Requester")

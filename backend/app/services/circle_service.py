@@ -19,11 +19,8 @@ class CircleService:
             "Content-Type": "application/json",
             "Accept": "application/json"
         }
-        # Support for Modular SDK KIT_KEY
-        if self.api_key.startswith("KIT_KEY:"):
-            self.headers["X-Kit-Key"] = self.api_key
-        else:
-            self.headers["Authorization"] = f"Bearer {self.api_key}"
+        # Support for Circle Standard API authentication
+        self.headers["Authorization"] = f"Bearer {self.api_key}"
 
     def _get_ciphertext(self):
         """Generates a fresh ciphertext for the entity secret using the public key."""
@@ -72,13 +69,22 @@ class CircleService:
             return resp.json()["data"]["wallets"]
 
     async def get_wallet_address(self, wallet_id: str):
-        url = f"{self.base_url}/v1/w3s/developer/wallets/{wallet_id}"
+        url = f"{self.base_url}/v1/w3s/wallets/{wallet_id}"
         async with httpx.AsyncClient() as client:
             resp = await client.get(url, headers=self.headers)
             if resp.status_code >= 400:
                 print(f"CIRCLE API ERROR ({resp.status_code}) in get_wallet_address: {resp.text}")
             resp.raise_for_status()
             return resp.json()["data"]["wallet"]["address"]
+
+    async def list_wallets(self):
+        url = f"{self.base_url}/v1/w3s/wallets"
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, headers=self.headers)
+            if resp.status_code >= 400:
+                print(f"CIRCLE API ERROR ({resp.status_code}) in list_wallets: {resp.text}")
+            resp.raise_for_status()
+            return resp.json()["data"]["wallets"]
 
     async def sign_typed_data(self, wallet_id: str, typed_data: dict):
         url = f"{self.base_url}/v1/w3s/developer/sign/typedData"
@@ -103,7 +109,7 @@ class CircleService:
                 raise KeyError(f"Circle API response missing 'id' for job tracking. Full response: {resp.json()}")
 
             # Poll for the signature result
-            status_url = f"{self.base_url}/v1/w3s/developer/transactions/{job_id}"
+            status_url = f"{self.base_url}/v1/w3s/transactions/{job_id}"
             max_attempts = 30
             for _ in range(max_attempts):
                 status_resp = await client.get(status_url, headers=self.headers)
@@ -146,21 +152,24 @@ class CircleService:
             resp.raise_for_status()
             job_id = resp.json()["data"]["id"]
             
-            status_url = f"{self.base_url}/v1/w3s/developer/transactions/{job_id}"
+            status_url = f"{self.base_url}/v1/w3s/transactions/{job_id}"
             max_attempts = 60
             for _ in range(max_attempts):
-                status_resp = await client.get(status_url, headers=self.headers)
-                status_resp.raise_for_status()
-                tx_data = status_resp.json()["data"]["transaction"]
-                
-                if tx_data["status"] == "COMPLETE":
-                    return tx_data.get("txHash", f"0x_mock_{job_id}")
-                elif tx_data["status"] == "FAILED":
-                    print(f"Transfer failed on-chain: {tx_data.get('errorMessage')}")
-                    return f"FAILED: {tx_data.get('errorMessage')}"
+                try:
+                    status_resp = await client.get(status_url, headers=self.headers)
+                    if status_resp.status_code == 200:
+                        tx_wrapper = status_resp.json().get("data", {}).get("transaction", {})
+                        state = tx_wrapper.get("state")
+                        if state == "COMPLETE":
+                            return tx_wrapper.get("txHash")
+                        elif state == "FAILED":
+                            print(f"Transfer failed on-chain: {tx_wrapper.get('errorMessage')}")
+                            return f"FAILED: {tx_wrapper.get('errorMessage')}"
+                except Exception as e:
+                    print(f"Polling error: {e}")
                 
                 await asyncio.sleep(1)
             
-            return f"PENDING: {job_id}"
+            return f"TIMEOUT: {job_id}"
 
 circle_service = CircleService()
