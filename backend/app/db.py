@@ -10,6 +10,11 @@ class AsyncMockWrapper:
     def __getattr__(self, name):
         attr = getattr(self._collection, name)
         if callable(attr):
+            # Methods that should NOT be async (they return cursors or self)
+            if name in ["find", "sort", "limit", "skip", "aggregate"]:
+                return attr
+            
+            # Methods that SHOULD be async
             async def async_wrapper(*args, **kwargs):
                 return attr(*args, **kwargs)
             return async_wrapper
