@@ -7,12 +7,45 @@ class AsyncMockWrapper:
     def __init__(self, collection):
         self._collection = collection
     
+class AsyncCursorWrapper:
+    def __init__(self, cursor):
+        self._cursor = cursor
+
+    def sort(self, *args, **kwargs):
+        self._cursor = self._cursor.sort(*args, **kwargs)
+        return self
+
+    def limit(self, *args, **kwargs):
+        self._cursor = self._cursor.limit(*args, **kwargs)
+        return self
+
+    def skip(self, *args, **kwargs):
+        self._cursor = self._cursor.skip(*args, **kwargs)
+        return self
+
+    async def to_list(self, length=None):
+        # Convert the synchronous mongomock cursor to a list
+        # Length is ignored or used as a slice
+        items = list(self._cursor)
+        if length is not None:
+            return items[:length]
+        return items
+
+    def __getattr__(self, name):
+        return getattr(self._cursor, name)
+
+class AsyncMockWrapper:
+    def __init__(self, collection):
+        self._collection = collection
+
     def __getattr__(self, name):
         attr = getattr(self._collection, name)
         if callable(attr):
-            # Methods that should NOT be async (they return cursors or self)
-            if name in ["find", "sort", "limit", "skip", "aggregate"]:
-                return attr
+            # Methods that return cursors (should return AsyncCursorWrapper)
+            if name in ["find", "aggregate"]:
+                def cursor_wrapper(*args, **kwargs):
+                    return AsyncCursorWrapper(attr(*args, **kwargs))
+                return cursor_wrapper
             
             # Methods that SHOULD be async
             async def async_wrapper(*args, **kwargs):
