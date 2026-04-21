@@ -11,6 +11,7 @@ from app.routes.validators import router as validators_router
 from app.routes.commerce import router as commerce_router
 from app.routes.router import router as task_router
 from app.services.validator_service import seed_validators
+from app.db import init_db
 
 app = FastAPI(title="Aurelius API")
 
@@ -30,7 +31,7 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup_event():
     # Immediate start to satisfy Railway health check
-    from app.db import init_db, db as db_proxy
+    from app.db import db as db_proxy
     asyncio.create_task(deferred_startup(db_proxy))
 
 async def deferred_startup(db_proxy):
