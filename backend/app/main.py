@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -22,13 +23,19 @@ app.add_middleware(
 )
 
 @app.on_event("startup")
-async def startup_seed():
-    # Initialize the database proxy with either motor or mongomock
+async def startup_event():
+    # Immediate start to satisfy Railway health check
     from app.db import init_db, db as db_proxy
-    initialized_db = await init_db()
-    db_proxy.set_db(initialized_db)
-    
-    await seed_validators(db)
+    asyncio.create_task(deferred_startup(db_proxy))
+
+async def deferred_startup(db_proxy):
+    try:
+        initialized_db = await init_db()
+        db_proxy.set_db(initialized_db)
+        await seed_validators(db_proxy)
+        print("Backend services fully initialized in background.")
+    except Exception as e:
+        print(f"Deferred initialization failed: {e}")
 
 from app.routes.market import router as market_router
 

@@ -1,5 +1,6 @@
 import random
 import time
+import asyncio
 from app.services.circle_service import circle_service
 from app.services.gemini_service import gemini_service
 import json
@@ -139,9 +140,9 @@ async def run_validator(check_type: str, prompt: str, draft_response: str, payme
             reason = "Standard pass (Fallback)"
 
     # Simulated delay
-    time.sleep(random.uniform(0.05, 0.2))
+    await asyncio.sleep(random.uniform(0.05, 0.2))
     response_time_ms = int((time.time() - start) * 1000)
-
+    
     validator = next(v for v in VALIDATORS if v["check_type"] == check_type)
 
     return {
