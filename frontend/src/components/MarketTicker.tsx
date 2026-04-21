@@ -24,8 +24,7 @@ export default function MarketTicker() {
 
   const fetchPrices = async () => {
     try {
-      const ids = COINS.map((c) => c.id).join(",");
-      const res = await fetch(`${import.meta.env.VITE_API_URL || "https://aurelius-production-44e1.up.railway.app/api"}/prices`);
+      const res = await fetch(`${import.meta.env.VITE_API_URL || "https://aurelius-production-2ec3.up.railway.app/api"}/prices`);
       if (!res.ok) throw new Error("Price sync failed");
       const data = await res.json();
 
