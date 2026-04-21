@@ -2,8 +2,8 @@
   "name": "aurelius-monorepo",
   "private": true,
   "scripts": {
-    "install-all": "npm install --prefix frontend && npm install --prefix backend",
-    "build": "npm run build --prefix frontend",
+    "install-all": "npm install --prefix frontend",
+    "build": "npm install --prefix frontend && npm run build --prefix frontend",
     "start": "npm run start --prefix frontend"
   }
 }
