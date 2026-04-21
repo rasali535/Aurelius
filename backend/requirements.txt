@@ -1,9 +1,11 @@
 fastapi
 uvicorn
 pymongo
+motor
 pydantic
 python-dotenv
 httpx
 eth-account
 cryptography
 mongomock
+gunicorn

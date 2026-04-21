@@ -30,9 +30,12 @@ async def startup_seed():
     
     await seed_validators(db)
 
+from app.routes.market import router as market_router
+
 app.include_router(health_router)
 app.include_router(orchestrator_router, prefix="/api")
 app.include_router(dashboard_router, prefix="/api")
 app.include_router(validators_router, prefix="/api")
+app.include_router(market_router, prefix="/api")
 app.include_router(commerce_router, prefix="/api/commerce")
 app.include_router(task_router, prefix="/api/router")

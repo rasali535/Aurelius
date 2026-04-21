@@ -1,35 +1,45 @@
-# Aurelius: The Autonomous Agentic Economy
+# 🪐 Aurelius: The Autonomous Agentic Economy
 
-Aurelius is a decentralized platform that enables a self-sustaining economy of AI agents. By integrating high-fidelity reasoning models with frictionless blockchain settlement, Aurelius allows autonomous agents to validate data, enforce guardrails, and settle nanopayments in real-time without human intervention.
+> **Autonomous agent-to-agent nanopayments on Arc. Engineered for the machine-to-machine era.**
 
-Built for the **Circle x Arc Hackathon**, Aurelius leverages **Circle Developer-Controlled Wallets (W3S)** and the **Arc Testnet** to provide sub-second transaction finality and gasless agentic interactions.
+Aurelius is a decentralized orchestration and settlement layer that enables AI agents to trade value, validate logic, and secure data in real-time. By combining the **Arc Network's** high-performance settlement with **Circle’s Programmable Wallets**, Aurelius provides the unit economics required for a self-sustaining agentic economy ($0.005 per transaction).
+
+**[Live Dashboard ↗](https://lightseagreen-bear-113896.hostingersite.com/)**
 
 ---
 
-## 🚀 Vision: Machine-to-Machine Nanopayments
+## ⚡ The Economic Proof
 
-In the coming agentic era, AI models will not just chat—they will carry out economic activity. Aurelius provides the "Guardrail & Settlement" layer for this new economy:
-1. **Orchestration**: A central agent decomposes complex goals into tasks.
-2. **Nano-Settlement**: Every task validation is protected by the **x402 protocol**, settling costs in USDC.
-3. **Guardrails**: Specialized validator agents (Safety, PII, Hallucination) earn rewards for securing the output.
+Traditional networks are too slow and expensive for AI agents. At a typical $0.005 price per validation, a $0.05 gas fee represents a **1000% loss**. 
+
+**Aurelius on Arc solves this:**
+- **Price per Action**: ~$0.005 USDC
+- **Arc Network Fee**: ~$0.0001 USDC
+- **Net Margin**: **+98%**
+
+---
+
+## 🏗 Key Features
+
+### 📡 Cyberdeck Command Center
+An immersive, real-time dashboard providing a "Neural View" of the economy. Monitor active prompts, validator health, and live on-chain USDC settlement feeds with sub-second latency.
+
+### ⛓ Autonomous Nano-Settlement
+Agents utilize **Circle W3S (Developer-Controlled Wallets)** to maintain sovereign economic identities. Payments are settled using the **x402 challenge-response protocol**, enabling gasless EIP-712 signing for high-frequency interactions.
+
+### 🤖 Intelligent AI Routing
+Built-in reasoning engine powered by **Gemini 1.5 Pro** and **AIML API**. The system intelligently routes complex tasks to specialized models (e.g., Llama 3.1 70B, Phi-3) based on task complexity and budget.
 
 ---
 
 ## 🛠 Tech Stack
 
-### **Blockchain & Payments**
-*   **Circle W3S (Developer-Controlled)**: Enables agents to hold identities and sign transactions autonomously via dynamic RSA-OAEP encryption.
-*   **Arc Testnet**: A high-performance Layer-1 designed for financial services, used for sub-second, dollar-denominated settlements.
-*   **x402 Protocol**: Facilitates gasless, EIP-712 based challenge-response settlements.
-
-### **AI & Reasoning**
-*   **Gemini 1.5 Pro**: Primary reasoning engine for agent coordination and task decomposition.
-*   **Featherless AI (Llama 3.1 70B)**: High-performance fallback engine for secure, autonomous reasoning.
-*   **Microsoft Phi-3 Mini**: Ultra-lightweight local fallback for high-availability logic.
-
-### **Backend & Storage**
-*   **FastAPI**: Asynchronous Python backend for real-time agent coordination.
-*   **MongoDB**: Persistent storage for agent identities, task metadata, and transaction logs.
+- **Blockchain**: Arc Testnet (Blockchain ID: `ARC-TESTNET`)
+- **Payments**: [Circle Programmable Wallets](https://www.circle.com/en/programmable-wallets) (USDC)
+- **Settlement Protocol**: EIP-712 + x402 Challenge-Response
+- **AI Infrastructure**: Gemini 1.5 Pro, AI/ML API (Featherless)
+- **Database**: MongoDB Atlas (Persistent Telemetry)
+- **Deployment**: hostinger (Frontend), Railway (Backend)
 
 ---
 
@@ -39,72 +49,50 @@ In the coming agentic era, AI models will not just chat—they will carry out ec
 graph TD
     User((User Request)) --> Orchestrator[Aurelius Orchestrator]
     
-    subgraph "Agentic Economy"
-        Orchestrator --> Task1[Decomposition]
-        Task1 --> V1[Safety Validator]
-        Task1 --> V2[PII Validator]
-        Task1 --> V3[Hallucination Validator]
+    subgraph "Agentic Reasoning"
+        Orchestrator --> Router[AI Router]
+        Router --> Llama[Featherless / Llama 3.1]
+        Router --> Phi[Local Fallback]
     end
 
     subgraph "Settlement Layer (Circle + Arc)"
-        V1 <-.-> x402((x402 Challenge))
-        V2 <-.-> x402
-        V3 <-.-> x402
+        Orchestrator <-.-> x402((USDC Settlement))
         x402 --> W3S[Circle W3S Wallets]
         W3S --> Arc[Arc Testnet Settlement]
     end
     
-    Arc --> Result[Approved Result]
-    Result --> User
+    Arc -- Transaction Hash --> Dashboard[Cyberdeck Dashboard]
 ```
 
 ---
 
-## ⚙️ Setup & Configuration
+## ⚙️ Quick Start (Backend)
 
-### 1. Environment Variables
-Create a `backend/.env` file with the following keys:
+### 1. Configure Environment
+Create `backend/.env` with your verified credentials:
 ```env
-# Circle Configuration
-CIRCLE_API_KEY=your_circle_api_key
-CIRCLE_ENTITY_SECRET=your_master_secret
-CIRCLE_ENTITY_PUBLIC_KEY="PEM_FORMATTED_PUBLIC_KEY"
-CIRCLE_MASTER_WALLET_ID=4cbefec9-5190-5042-ab9e-19ad207e82fe
-
-# AI Configuration
-FEATHERLESS_API_KEY=your_featherless_key
-GOOGLE_API_KEY=your_gemini_key
-
-# Database
-MONGODB_URI=mongodb://localhost:27017
+MONGODB_URI=mongodb+srv://...
+CIRCLE_API_KEY=your_production_key
+CIRCLE_MASTER_WALLET_ID=d38ee612-64a3-501e-be68-a55019fce9b1
+CIRCLE_API_URL=https://api.circle.com
+AIML_API_KEY=your_key
 ```
 
-### 2. Implementation Details
-The system uses a **Dynamic RSA-OAEP** encryption strategy for Circle Entity Secrets. Every API request generates a unique, non-reusable ciphertext to ensure maximum security for agent-controlled funds.
-
-### 3. Funding
-To initialize the economy:
-1. Fund the **Master Wallet** on the Arc Testnet with test USDC.
-2. Run the onboarding script to seed the individual validator wallets.
-
----
-
-## 🧪 Testing the Economy
-
-Aurelius includes a comprehensive "Economy Audit" script that verifies the full lifecycle from wallet creation to gasless on-chain settlement.
-
+### 2. Launch Local Test
+Verify the end-to-end on-chain flow:
 ```bash
-# From project root
-python backend/test_w3s_flow.py
+cd backend
+$env:PYTHONPATH="."
+python test_w3s_flow.py
 ```
-
-This script validates:
-*   RSA-OAEP dynamic re-encryption.
-*   W3S Wallet creation for agents.
-*   EIP-712 gasless challenge-response signing.
-*   Sub-second settlement polling on Arc.
 
 ---
 
-## 📜 License
-Copyright (c) 2026 Aurelius Team. Built for the Circle x Arc Hackathon.
+## 📜 Repository Structure
+- `/frontend`: Vite + React + Vanilla CSS (Cyberdeck Dashboard)
+- `/backend`: FastAPI + Motor (Orchestrator & Settlement Layer)
+- `/backend/app/services`: Core logic for Circle, X402, and AI routing.
+
+---
+
+Built with ⚡ by the **Aurelius Team** for the **Circle x Arc Hackathon 2026**.

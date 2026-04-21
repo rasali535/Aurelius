@@ -25,10 +25,8 @@ export default function MarketTicker() {
   const fetchPrices = async () => {
     try {
       const ids = COINS.map((c) => c.id).join(",");
-      const res = await fetch(
-        `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`
-      );
-      if (!res.ok) throw new Error("CoinGecko fetch failed");
+      const res = await fetch(`${import.meta.env.VITE_API_URL || "https://lightseagreen-bear-113896.hostingersite.com/api"}/prices`);
+      if (!res.ok) throw new Error("Price sync failed");
       const data = await res.json();
 
       setCoins(
