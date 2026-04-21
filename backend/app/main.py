@@ -28,6 +28,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
+async def root():
+    return {"status": "alive", "database": "initialized" if db._db else "pending"}
+
 @app.on_event("startup")
 async def startup_event():
     # Immediate start to satisfy Railway health check
@@ -42,6 +46,8 @@ async def deferred_startup(db_proxy):
         print("Backend services fully initialized in background.")
     except Exception as e:
         print(f"Deferred initialization failed: {e}")
+        import traceback
+        traceback.print_exc()
 
 from app.routes.market import router as market_router
 
