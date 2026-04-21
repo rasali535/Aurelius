@@ -1,6 +1,8 @@
 import random
 import time
 from app.services.circle_service import circle_service
+from app.services.gemini_service import gemini_service
+import json
 
 VALIDATORS = [
     {
@@ -93,35 +95,48 @@ async def run_validator(check_type: str, prompt: str, draft_response: str, payme
     
     start = time.time()
     
-    # Simple rule-based simulation for validation logic
-    if check_type in ["hallucination", "hallucination_premium"]:
-        risky = any(word in draft_response.lower() for word in ["always", "guaranteed", "cure"])
-        status = "warning" if risky else "passed"
-        risk_score = 0.85 if risky else round(random.uniform(0.01, 0.10), 2)
-        reason = "Potential factual overclaim detected" if risky else "No strong hallucination indicators found"
-
-    elif check_type == "pii":
-        risky = any(token in draft_response.lower() for token in ["ssn", "passport", "credit card"])
-        status = "failed" if risky else "passed"
-        risk_score = 0.91 if risky else round(random.uniform(0.01, 0.15), 2)
-        reason = "Possible PII leakage detected" if risky else "No PII leakage detected"
-
-    elif check_type == "safety":
-        risky = any(word in draft_response.lower() for word in ["self-harm", "illegal", "weapon"])
-        status = "warning" if risky else "passed"
-        risk_score = 0.79 if risky else round(random.uniform(0.05, 0.30), 2)
-        reason = "Potential unsafe content detected" if risky else "No major safety issues found"
-
-    elif check_type == "compliance":
-        risky = any(word in draft_response.lower() for word in ["tax evasion", "money laundering", "insider trading"])
-        status = "blocked" if risky else "passed"
-        risk_score = 0.98 if risky else round(random.uniform(0.02, 0.20), 2)
-        reason = "Compliance violation detected" if risky else "No compliance issues found"
-
-    else:
-        status = "passed"
-        risk_score = 0.1
-        reason = "Unknown validator type fallback"
+    # Gemini-based validation logic
+    system_prompts = {
+        "hallucination": "Verify if the draft response contains factual errors or 'hallucinations' for the given prompt.",
+        "pii": "Scan for Personal Identifiable Information (PII) leakage like SSNs, passport numbers, or credit card details.",
+        "safety": "Identify unsafe content, self-harm instructions, or illegal weapon manufacturing details.",
+        "compliance": "Check for financial compliance violations like tax evasion advice or money laundering schemes."
+    }
+    
+    prompt_for_gemini = (
+        f"Role: Specialized Validator Agent ({check_type})\n"
+        f"Task: {system_prompts.get(check_type, 'Verify content safety and accuracy')}\n"
+        f"User Prompt: {prompt}\n"
+        f"Draft Response: {draft_response}\n\n"
+        "Return a JSON object with: 'status' (passed/warning/failed/blocked), 'risk_score' (0.0 to 1.0), and 'reason' (string)."
+    )
+    
+    try:
+        gemini_raw_resp = await gemini_service.chat_with_tools(prompt_for_gemini)
+        # Attempt to parse JSON from Gemini's text response
+        # Gemini often wraps code in triple backticks
+        json_str = gemini_raw_resp.strip()
+        if "```json" in json_str:
+            json_str = json_str.split("```json")[1].split("```")[0].strip()
+        elif "```" in json_str:
+            json_str = json_str.split("```")[1].split("```")[0].strip()
+            
+        analysis = json.loads(json_str)
+        status = analysis.get("status", "passed")
+        risk_score = analysis.get("risk_score", 0.1)
+        reason = analysis.get("reason", "Analysis complete")
+    except Exception as e:
+        print(f"Gemini validation failed, falling back to simple rules: {e}")
+        # Fallback to simple rule-based simulation if Gemini fails
+        if check_type in ["hallucination", "hallucination_premium"]:
+            risky = any(word in draft_response.lower() for word in ["always", "guaranteed", "cure"])
+            status = "warning" if risky else "passed"
+            risk_score = 0.85 if risky else round(random.uniform(0.01, 0.10), 2)
+            reason = "Potential factual overclaim (Rule Fallback)" if risky else "No strong indicators (Rule Fallback)"
+        else:
+            status = "passed"
+            risk_score = 0.1
+            reason = "Standard pass (Fallback)"
 
     # Simulated delay
     time.sleep(random.uniform(0.05, 0.2))

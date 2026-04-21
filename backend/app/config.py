@@ -13,5 +13,7 @@ class Settings:
     CIRCLE_API_URL = os.getenv("CIRCLE_API_URL", "https://api-sandbox.circle.com")
     ARC_RPC_URL = os.getenv("ARC_RPC_URL", "https://rpc.testnet.arc.network")
     CIRCLE_APP_ID = os.getenv("CIRCLE_APP_ID")
+    GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+    FEATHERLESS_API_KEY = os.getenv("FEATHERLESS_API_KEY")
 
 settings = Settings()

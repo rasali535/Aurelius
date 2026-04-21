@@ -7,6 +7,8 @@ from app.routes.health import router as health_router
 from app.routes.orchestrator import router as orchestrator_router
 from app.routes.dashboard import router as dashboard_router
 from app.routes.validators import router as validators_router
+from app.routes.commerce import router as commerce_router
+from app.routes.router import router as task_router
 from app.services.validator_service import seed_validators
 
 app = FastAPI(title="Aurelius API")
@@ -32,3 +34,5 @@ app.include_router(health_router)
 app.include_router(orchestrator_router, prefix="/api")
 app.include_router(dashboard_router, prefix="/api")
 app.include_router(validators_router, prefix="/api")
+app.include_router(commerce_router, prefix="/api/commerce")
+app.include_router(task_router, prefix="/api/router")

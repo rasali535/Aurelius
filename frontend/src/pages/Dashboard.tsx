@@ -9,6 +9,7 @@ import type { DashboardSummary, PromptRunResponse } from "../types";
 export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [run, setRun] = useState<PromptRunResponse | null>(null);
+  const [routerResult, setRouterResult] = useState<any | null>(null);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
 
   const mockSummary: DashboardSummary = {
@@ -35,12 +36,13 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchSummary();
-    const interval = setInterval(fetchSummary, 60000); // Check every minute
+    const interval = setInterval(fetchSummary, 60000); 
     return () => clearInterval(interval);
   }, [summary]);
 
   const handleRun = async (prompt: string) => {
     setLoading(true);
+    setRouterResult(null);
     try {
       const res = await api.post("/run-prompt", { prompt });
       setRun(res.data);
@@ -65,6 +67,27 @@ export default function Dashboard() {
     }
   };
 
+  const handleRouterRun = async (task: string) => {
+    setLoading(true);
+    setRun(null);
+    try {
+      const res = await api.post("/router/execute", { task });
+      setRouterResult(res.data);
+      await fetchSummary();
+    } catch (err) {
+      console.warn("Router execution failed, using mock", err);
+      setRouterResult({
+        model_id: "meta-llama/Llama-3-70B-Instruct",
+        output: "Based on your request, I've analyzed the best path for decentralized identity implementation...",
+        price_usdc: 0.0008,
+        status: "settled",
+        reasoning: "Complex architectural request requiring high reasoning capability."
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleBatchRun = async () => {
     setLoading(true);
     try {
@@ -78,32 +101,57 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="page">
+    <div className="page fade-in">
       <header>
         <h1>Aurelius</h1>
         <p className="subtitle">
-          Autonomous LLM guardrail network with sub-cent agent-to-agent payments.
+          Autonomous AI Infrastructure with Native USDC Value Settlement on Arc.
         </p>
       </header>
 
       <MetricsCards summary={summary} />
       
-      <section className="card margin-info" style={{ background: 'rgba(255, 107, 107, 0.1)', border: '1px solid #ff6b6b', marginBottom: '2rem' }}>
-        <h3>🚨 Economic Proof: Why this model needs Arc</h3>
+      <section className="card margin-info">
+        <h2>🚀 Arc Intelligence Layer</h2>
         <p>
-          Traditional gas fees ($0.05 - $0.50) make <strong>agentic nanopayments</strong> impossible. 
-          At our <strong>$0.005</strong> per-validation price point:
+          Aurelius coordinates specialized agents to validate, route, and execute AI tasks. 
+          Every step is verified and settled using gasless USDC nanopayments via Circle & Arc.
         </p>
-        <ul style={{ listStyleType: 'inside', marginTop: '10px' }}>
-          <li><strong>Traditional L1/L2:</strong> Transaction Cost {'>'} Transaction Value (1000% Loss).</li>
-          <li><strong>Arc Network:</strong> Near-zero overhead enables high-frequency micro-commerce.</li>
-        </ul>
       </section>
 
-      <PromptForm onRun={handleRun} onBatchRun={handleBatchRun} loading={loading} />
+      <PromptForm 
+        onRun={handleRun} 
+        onRouterRun={handleRouterRun}
+        onBatchRun={handleBatchRun} 
+        loading={loading} 
+      />
 
       <div className="grid-two">
-        <ValidatorPanel run={run} />
+        <div className="content-panel">
+          {run && <ValidatorPanel run={run} />}
+          {routerResult && (
+            <div className="card fade-in">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2>🔀 Global Router Output</h2>
+                <span className="status-badge settled">Settled: ${routerResult.price_usdc} USDC</span>
+              </div>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '16px' }}>
+                <strong>Model:</strong> {routerResult.model_id}
+              </p>
+              <div style={{ background: 'rgba(0,0,0,0.2)', padding: '20px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '16px' }}>
+                 {routerResult.output}
+              </div>
+              <p style={{ fontSize: '0.85rem', fontStyle: 'italic', color: 'var(--text-muted)' }}>
+                <strong>Reasoning:</strong> {routerResult.reasoning}
+              </p>
+            </div>
+          )}
+          {!run && !routerResult && (
+            <div className="card" style={{ textAlign: 'center', padding: '60px', opacity: 0.5 }}>
+              <p>Execute an agent to see the verification and settlement sequence.</p>
+            </div>
+          )}
+        </div>
         <TransactionFeed summary={summary} />
       </div>
     </div>

@@ -4,9 +4,16 @@ from app.utils import generate_id, utc_now
 from app.services.validator_service import VALIDATORS, run_validator
 from app.services.circle_service import circle_service
 from app.services.x402_service import x402_service
+from app.services.gemini_service import gemini_service
 
-def create_draft_response(prompt: str) -> str:
-    return f"Draft response for prompt: {prompt}"
+async def create_draft_response(prompt: str) -> str:
+    """Uses Gemini to generate a high-quality draft response based on reasoning."""
+    system_prompt = (
+        "You are the Aurelius Lead Agent. Generate a detailed, professional response "
+        "to the following request. Maintain a helpful and authoritative tone."
+    )
+    full_prompt = f"{system_prompt}\n\nUser Request: {prompt}"
+    return await gemini_service.chat_with_tools(full_prompt)
 
 def final_status_from_results(results):
     statuses = [r["status"] for r in results]
@@ -35,7 +42,7 @@ async def get_or_create_requester_wallet(db):
 
 async def process_prompt_run(db, prompt: str):
     run_id = generate_id("run")
-    draft_response = create_draft_response(prompt)
+    draft_response = await create_draft_response(prompt)
     requester_wallet = await get_or_create_requester_wallet(db)
 
     prompt_doc = {
