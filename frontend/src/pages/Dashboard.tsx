@@ -5,7 +5,7 @@ import TransactionFeed from "../components/TransactionFeed";
 import AgentNetworkGraphic from "../components/AgentNetworkGraphic";
 import MarketTicker from "../components/MarketTicker";
 import AgentPaymentFlow from "../components/AgentPaymentFlow";
-import ManualPaymentPanel from "../components/ManualPaymentPanel";
+import SwapPanel from "../components/SwapPanel";
 import { api } from "../services/api";
 import type { DashboardSummary, PromptRunResponse } from "../types";
 
@@ -31,7 +31,7 @@ export default function Dashboard({ onBack }: { onBack: () => void }) {
     fetchSummary();
     const interval = setInterval(fetchSummary, 3000); 
     return () => clearInterval(interval);
-  }, [summary]);
+  }, []);
 
   useEffect(() => {
     let simInterval: any;
@@ -100,7 +100,8 @@ export default function Dashboard({ onBack }: { onBack: () => void }) {
         <div className="system-status">
           <div className="status-bit">SYSTEM: <span style={{ color: 'var(--success)' }}>ONLINE</span></div>
           <div className="status-bit">NETWORK: <span style={{ color: 'var(--primary)' }}>ARC_TESTNET</span></div>
-          <div className="status-bit">AUTO-PILOT: <span style={{ color: 'var(--secondary)' }}>{isSimulating ? 'ENABLED' : 'DISABLED'}</span></div>
+          <div className="status-bit">WALLET_ID: <span style={{ color: 'var(--secondary)' }}>{summary?.wallet_id || 'PENDING...'}</span></div>
+          <div className="status-bit">ADDRESS: <span style={{ color: 'var(--primary)', fontSize: '0.7rem' }}>{summary?.wallet_address || '0x...'}</span></div>
         </div>
         <div className="system-identity">
           <h1>AURELIUS_CORE_v1.0</h1>
@@ -108,7 +109,8 @@ export default function Dashboard({ onBack }: { onBack: () => void }) {
         <button className="secondary" onClick={onBack} style={{ fontSize: '0.8rem', padding: '8px 16px' }}>TERMINATE_SESSION</button>
       </header>
 
-      <div className="dashboard-grid-cyber">
+      <div className="cyber-frame">
+        <div className="dashboard-grid-cyber">
         {/* Left Column: Diagnostics */}
         <div className="sidebar-diagnostics">
           <MetricsCards summary={summary} />
@@ -141,7 +143,7 @@ export default function Dashboard({ onBack }: { onBack: () => void }) {
 
           <MarketTicker />
 
-          <ManualPaymentPanel />
+          <SwapPanel summary={summary} />
           
           <div className="card simulation-control">
             <h3 style={{ fontSize: '0.86rem', color: 'var(--success)', marginBottom: '8px' }}>AUTO_PILOT_ENGINE</h3>
@@ -176,6 +178,7 @@ export default function Dashboard({ onBack }: { onBack: () => void }) {
         {/* Right Column: Transaction Log */}
         <div className="transaction-log-column">
           <TransactionFeed summary={summary} isLive={isSimulating || isBatchRunning} />
+        </div>
         </div>
       </div>
     </div>

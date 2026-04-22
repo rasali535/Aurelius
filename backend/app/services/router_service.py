@@ -17,11 +17,13 @@ class RouterService:
         """
         # --- Step 1: Reasoning with Gemini to pick the model ---
         catalog_str = json.dumps(FEATHERLESS_MODELS, indent=2)
+        aiml_models = json.dumps(gemini_service.available_models, indent=2)
         routing_prompt = (
-            f"Given the following task, select the most suitable specialized model from the catalog.\n"
-            f"Catalog:\n{catalog_str}\n\n"
+            f"Given the following task, select the most suitable specialized model from the catalogs.\n"
+            f"Featherless Catalog:\n{catalog_str}\n\n"
+            f"AI/ML API Catalog:\n{aiml_models}\n\n"
             f"Task: {task_prompt}\n\n"
-            "Return a JSON object with: 'selected_model_id', 'reasoning', 'price_usdc'."
+            "Return a JSON object with: 'selected_model_id', 'provider' (featherless/aiml), 'reasoning', 'price_usdc'."
         )
         
         try:
@@ -79,7 +81,11 @@ class RouterService:
         )
         
         # --- Step 3: Execute Inference ---
-        output = await featherless_service.run_inference(model_id, task_prompt)
+        provider = decision.get("provider", "featherless")
+        if provider == "aiml":
+            output = await gemini_service.run_completion(task_prompt, model=model_id)
+        else:
+            output = await featherless_service.run_inference(model_id, task_prompt)
 
         # --- Log the event ---
         inference_log = {

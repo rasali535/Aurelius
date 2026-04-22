@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from app.services.circle_service import circle_service
 from app.db import db
 from app.services.gemini_service import gemini_service
+from uuid import uuid4
 from typing import List, Optional
 
 router = APIRouter()
@@ -63,5 +64,32 @@ async def manual_payment(payload: ManualPaymentRequest):
         )
         
         return {"status": "success", "tx_hash": tx_hash}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+class SwapRequest(BaseModel):
+    from_token: str
+    to_token: str
+    amount: float
+
+@router.post("/swap")
+async def execute_swap(payload: SwapRequest):
+    """
+    Simulates a token swap on the Arc network.
+    """
+    try:
+        # Mocking the swap logic for the demo
+        tx_hash = f"0x_swap_{uuid4().hex}"
+        
+        # In a real scenario, this would call Circle's smart contract or a DEX aggregator
+        # For now, we'll just log it and return success
+        print(f"SWAP: {payload.amount} {payload.from_token} -> {payload.to_token}")
+        
+        return {
+            "status": "success", 
+            "tx_hash": tx_hash,
+            "received_amount": payload.amount * 0.995, # Mock 0.5% slippage/fee
+            "from_token": payload.from_token,
+            "to_token": payload.to_token
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

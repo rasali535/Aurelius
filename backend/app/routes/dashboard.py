@@ -23,12 +23,18 @@ async def dashboard_summary():
         for p in payments:
             p["id"] = str(p.pop("_id"))
 
+        requester_wallet = await db.config.find_one({"_id": "requester_wallet"})
+        wallet_address = requester_wallet.get("wallet_address") if requester_wallet else "0x_NOT_CONFIGURED"
+        wallet_id = requester_wallet.get("wallet_id") if requester_wallet else "NONE"
+
         return {
             "total_prompt_runs": total_prompt_runs,
             "total_validations": total_validations,
             "total_payments": total_payments,
             "total_spend_usdc": round(total_spend_usdc, 6),
             "latest_transactions": payments,
+            "wallet_address": wallet_address,
+            "wallet_id": wallet_id
         }
     except Exception as e:
         print(f"Dashboard summary error: {e}")

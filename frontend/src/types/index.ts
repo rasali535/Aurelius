@@ -35,4 +35,6 @@ export type DashboardSummary = {
   total_payments: number;
   total_spend_usdc: number;
   latest_transactions: Transaction[];
+  wallet_address?: string;
+  wallet_id?: string;
 };

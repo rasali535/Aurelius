@@ -70,8 +70,13 @@ class GeminiService:
     def __init__(self):
         self.api_key = settings.AIML_API_KEY
         self.base_url = settings.AIML_API_URL
-        # Try a more standard model name if the previous one failed
         self.default_model = "google/gemini-2.0-flash"
+        self.available_models = [
+            "google/gemini-2.0-flash",
+            "meta-llama/llama-3.1-70b-instruct",
+            "mistralai/mistral-7b-instruct-v0.2",
+            "anthropic/claude-3-haiku"
+        ]
         
         if not self.api_key:
             logger.warning("AIML_API_KEY not found. GeminiService will use fallback only.")
@@ -190,11 +195,41 @@ class GeminiService:
                         }
                     )
                     return final_resp.json()["choices"][0]["message"]["content"]
-                
                 return message["content"]
-                
         except Exception as e:
             logger.warning(f"AI/ML API call failed, falling back: {e}")
+            return await self._fallback(prompt)
+
+    async def run_completion(self, prompt: str, model: str = None, system_prompt: str = None):
+        """Generic chat completion for agent reasoning without tools."""
+        if not self.api_key:
+            return await self._fallback(prompt)
+
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    f"{self.base_url}/chat/completions",
+                    headers={"Authorization": f"Bearer {self.api_key}"},
+                    json={
+                        "model": model or self.default_model,
+                        "messages": messages,
+                        "temperature": 0.7
+                    }
+                )
+                
+                if response.status_code != 200:
+                    logger.error(f"AI/ML API error: {response.text}")
+                    return await self._fallback(prompt)
+                
+                resp_json = response.json()
+                return resp_json["choices"][0]["message"]["content"]
+        except Exception as e:
+            logger.warning(f"AI/ML API completion failed, falling back: {e}")
             return await self._fallback(prompt)
 
     async def _fallback(self, prompt: str):

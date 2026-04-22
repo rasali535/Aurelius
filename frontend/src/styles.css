@@ -109,6 +109,7 @@ h1 {
     0 calc(100% - 15px)
   );
   box-shadow: inset 0 0 15px rgba(0, 242, 255, 0.05);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .card::after {
@@ -556,15 +557,38 @@ button.danger:hover {
   margin: 0 auto;
 }
 
+.cyber-frame {
+  position: relative;
+  border: 1px solid var(--panel-border);
+  padding: 2px;
+  background: linear-gradient(to bottom, rgba(0, 242, 255, 0.05), transparent);
+}
+
+.cyber-frame::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  right: -1px;
+  bottom: -1px;
+  border: 1px solid var(--primary);
+  opacity: 0.2;
+  pointer-events: none;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 0, 10px 10px, 10px calc(100% - 10px), calc(100% - 10px) calc(100% - 10px), calc(100% - 10px) 10px, 10px 10px);
+}
+
 .cyber-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 40px;
   padding: 15px 30px;
-  background: rgba(0, 242, 255, 0.05);
+  background: rgba(5, 5, 20, 0.8);
+  backdrop-filter: blur(20px);
   border: 1px solid var(--panel-border);
+  border-bottom: 2px solid var(--primary);
   border-radius: 4px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
 .system-status {
@@ -588,9 +612,10 @@ button.danger:hover {
 
 .dashboard-grid-cyber {
   display: grid;
-  grid-template-columns: 320px 1fr 380px;
-  gap: 30px;
+  grid-template-columns: 350px 1fr 400px;
+  gap: 24px;
   align-items: start;
+  perspective: 1000px;
 }
 
 .cyber-btn {
@@ -610,12 +635,29 @@ button.danger:hover {
 }
 
 .neural-core {
-  min-height: 600px;
+  min-height: 700px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
 .text-success { color: var(--success); }
 .text-primary { color: var(--primary); }
 .text-secondary { color: var(--secondary); }
+
+.primary-glow {
+  background: var(--primary) !important;
+  color: var(--background) !important;
+  box-shadow: 0 0 20px var(--primary-glow) !important;
+  border: none !important;
+}
+
+.secondary-glow {
+  background: var(--secondary) !important;
+  color: #fff !important;
+  box-shadow: 0 0 20px var(--secondary-glow) !important;
+  border: none !important;
+}
 
 @media (max-width: 1200px) {
   .dashboard-grid-cyber {
@@ -686,7 +728,7 @@ button.danger:hover {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-height: 500px;
+  max-height: 650px;
   overflow-y: auto;
   padding-right: 8px;
 }
