@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { memo } from 'react';
 
-export default function AgentNetworkGraphic() {
+const AgentNetworkGraphic = memo(function AgentNetworkGraphic() {
   return (
     <div className="network-graphic-container">
       <svg width="100%" height="100%" viewBox="0 0 800 400" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -73,4 +73,6 @@ export default function AgentNetworkGraphic() {
       `}</style>
     </div>
   );
-}
+});
+
+export default AgentNetworkGraphic;

@@ -106,14 +106,16 @@ export default function SwapPanel({ summary }: { summary: DashboardSummary | nul
         </button>
       </div>
 
-      {status.type !== "none" && (
-        <div className={`status-box ${status.type}`}>
-          <div className="status-header">
-            {status.type === "success" ? "✓ TRANSACTION_VERIFIED" : "⚠ SYSTEM_ERROR"}
+      <div style={{ minHeight: '60px', marginTop: '15px' }}>
+        {status.type !== "none" && (
+          <div className={`status-box ${status.type}`} style={{ margin: 0 }}>
+            <div className="status-header">
+              {status.type === "success" ? "✓ TRANSACTION_VERIFIED" : "⚠ SYSTEM_ERROR"}
+            </div>
+            <div className="status-msg">{status.msg}</div>
           </div>
-          <div className="status-msg">{status.msg}</div>
-        </div>
-      )}
+        )}
+      </div>
 
       <style>{`
         .swap-panel {

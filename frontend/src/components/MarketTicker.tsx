@@ -113,6 +113,41 @@ export default function MarketTicker() {
           <span style={{ color: "var(--error)", fontSize: "0.7rem" }}>~$2.80</span>
         </div>
       </div>
+      <style>{`
+        .ticker-grid {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .ticker-row {
+          display: grid;
+          grid-template-columns: 60px 100px 1fr;
+          align-items: center;
+          gap: 10px;
+          font-family: var(--terminal-font);
+        }
+        .ticker-symbol {
+          font-weight: bold;
+          color: var(--text-muted);
+          font-size: 0.75rem;
+        }
+        .ticker-price {
+          font-size: 0.85rem;
+          color: #fff;
+          text-align: right;
+        }
+        .ticker-change {
+          font-size: 0.7rem;
+          text-align: right;
+        }
+        .loading-blink {
+          animation: blink 1s infinite;
+          opacity: 0.5;
+        }
+        @keyframes blink {
+          50% { opacity: 0.2; }
+        }
+      `}</style>
     </div>
   );
 }

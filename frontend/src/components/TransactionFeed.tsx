@@ -11,7 +11,12 @@ export default function TransactionFeed({ summary, isLive }: Props) {
 
   useEffect(() => {
     if (summary?.latest_transactions) {
-      setLocalTxs(summary.latest_transactions);
+      setLocalTxs(prev => {
+        // Merge real transactions from backend, prioritizing them over simulated ones
+        const backendIds = new Set(summary.latest_transactions.map(tx => tx.id || tx.tx_hash));
+        const filteredPrev = prev.filter(tx => !backendIds.has(tx.id || tx.tx_hash));
+        return [...summary.latest_transactions, ...filteredPrev].slice(0, 20);
+      });
     }
   }, [summary]);
 

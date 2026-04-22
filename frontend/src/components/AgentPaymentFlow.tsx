@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, memo } from "react";
 
 type PaymentEvent = {
   id: string;
@@ -48,7 +48,7 @@ function getNode(id: string) {
 
 type Props = { isLive?: boolean };
 
-export default function AgentPaymentFlow({ isLive }: Props) {
+const AgentPaymentFlow = memo(function AgentPaymentFlow({ isLive }: Props) {
   const [events, setEvents] = useState<PaymentEvent[]>(MOCK_EVENTS);
   const [activeFlow, setActiveFlow] = useState<string | null>(null);
   const idxRef = useRef(0);
@@ -229,4 +229,6 @@ export default function AgentPaymentFlow({ isLive }: Props) {
       </div>
     </div>
   );
-}
+});
+
+export default AgentPaymentFlow;

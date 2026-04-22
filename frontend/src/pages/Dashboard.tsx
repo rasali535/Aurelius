@@ -29,7 +29,7 @@ export default function Dashboard({ onBack }: { onBack: () => void }) {
 
   useEffect(() => {
     fetchSummary();
-    const interval = setInterval(fetchSummary, 3000); 
+    const interval = setInterval(fetchSummary, 10000); 
     return () => clearInterval(interval);
   }, []);
 
@@ -52,7 +52,6 @@ export default function Dashboard({ onBack }: { onBack: () => void }) {
   }, [isSimulating, isBatchRunning]);
 
   const handleRouterRun = async (task: string) => {
-    setRun(null);
     try {
       const res = await api.post("/router/execute", { task });
       setRouterResult(res.data);
