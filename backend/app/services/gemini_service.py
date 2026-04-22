@@ -1,19 +1,15 @@
 import httpx
+import json
+import logging
 from app.config import settings
 from app.services.circle_service import circle_service
 from app.services.x402_service import x402_service
-import json
-import logging
 
 logger = logging.getLogger(__name__)
 
-# --- Tool Definitions for Gemini ---
+# --- Tool Definitions ---
 
 async def create_user_wallet(user_name: str):
-    """
-    Creates a new Circle Developer-Controlled wallet for a user or agent.
-    Returns the wallet address and ID.
-    """
     try:
         wallet_set = await circle_service.create_wallet_set(f"Aurelius-{user_name}")
         wallets = await circle_service.create_wallets(wallet_set["id"], blockchain="ARC-TESTNET")
@@ -28,33 +24,21 @@ async def create_user_wallet(user_name: str):
         return {"status": "error", "message": str(e)}
 
 async def initiate_payment(amount_usdc: float, to_address: str, from_wallet_id: str, from_wallet_address: str):
-    """
-    Initiates a USDC settlement on the Arc network using the X402 gasless protocol.
-    Requires the source wallet ID and address.
-    """
-    # ---- Validation Guard ----
-    # Hackathon rule: per‑action price must stay ≤ 0.01 USDC.
     if amount_usdc > 0.01:
         raise ValueError("Per‑action amount must be ≤ 0.01 USDC")
     try:
-        # 1. Generate x402 challenge
         challenge = x402_service.generate_challenge(
             amount_usdc=amount_usdc,
             validator_wallet=to_address
         )
-        
-        # 2. Construct EIP-712 payload
         signing_payload = x402_service.construct_eip712_payload(
             challenge=challenge,
             from_wallet=from_wallet_address
         )
-        
-        # 3. Sign via Circle API
         signature = await circle_service.sign_typed_data(
             wallet_id=from_wallet_id,
             typed_data=signing_payload
         )
-        
         return {
             "status": "settled",
             "amount": amount_usdc,
@@ -68,28 +52,29 @@ async def initiate_payment(amount_usdc: float, to_address: str, from_wallet_id: 
 
 class GeminiService:
     def __init__(self):
-        self.api_key = settings.AIML_API_KEY
-        self.base_url = settings.AIML_API_URL
-        self.default_model = "google/gemini-2.0-flash"
-        self.available_models = [
-            "google/gemini-2.0-flash",
-            "meta-llama/llama-3.1-70b-instruct",
-            "mistralai/mistral-7b-instruct-v0.2",
-            "anthropic/claude-3-haiku"
-        ]
-        
-        if not self.api_key:
-            logger.warning("AIML_API_KEY not found. GeminiService will use fallback only.")
+        self.google_api_key = settings.GOOGLE_API_KEY
+        self.aiml_api_key = settings.AIML_API_KEY
+        self.aiml_base_url = settings.AIML_API_URL
+        self.default_model = "google/gemini-2.0-flash" if self.aiml_api_key else "gemini-1.5-flash"
 
     async def chat_with_tools(self, prompt: str, chat_history=None):
-        """
-        Main entry point for agent reasoning and tool usage via AI/ML API.
-        Uses OpenAI-compatible chat completion with tool support.
-        """
-        if not self.api_key:
+        """Uses Google Direct if available, else falls back to AI/ML API."""
+        if self.google_api_key:
+            try:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={self.google_api_key}"
+                    resp = await client.post(url, json={
+                        "contents": [{"parts": [{"text": prompt}]}]
+                    })
+                    if resp.status_code == 200:
+                        return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+            except Exception as e:
+                logger.warning(f"Google direct call failed: {e}")
+
+        if not self.aiml_api_key:
             return await self._fallback(prompt)
 
-        # 1. Define tools in OpenAI format
+        # AI/ML API (OpenAI-compatible) logic
         tools = [
             {
                 "type": "function",
@@ -99,7 +84,7 @@ class GeminiService:
                     "parameters": {
                         "type": "object",
                         "properties": {
-                            "user_name": {"type": "string", "description": "The name of the user or agent"}
+                            "user_name": {"type": "string"}
                         },
                         "required": ["user_name"]
                     }
@@ -109,14 +94,14 @@ class GeminiService:
                 "type": "function",
                 "function": {
                     "name": "initiate_payment",
-                    "description": "Initiates a USDC settlement on the Arc network using the X402 gasless protocol.",
+                    "description": "Initiates a USDC settlement on the Arc network.",
                     "parameters": {
                         "type": "object",
                         "properties": {
-                            "amount_usdc": {"type": "number", "description": "Amount in USDC (max 0.01)"},
-                            "to_address": {"type": "string", "description": "Recipient address"},
-                            "from_wallet_id": {"type": "string", "description": "Source wallet ID"},
-                            "from_wallet_address": {"type": "string", "description": "Source wallet address"}
+                            "amount_usdc": {"type": "number"},
+                            "to_address": {"type": "string"},
+                            "from_wallet_id": {"type": "string"},
+                            "from_wallet_address": {"type": "string"}
                         },
                         "required": ["amount_usdc", "to_address", "from_wallet_id", "from_wallet_address"]
                     }
@@ -125,124 +110,88 @@ class GeminiService:
         ]
 
         messages = [
-            {
-                "role": "system",
-                "content": (
-                    "You are Aurelius, an AI orchestrator for the autonomous agent economy. "
-                    "You coordinate agent workflows and handle value settlement using Circle USDC on the Arc network. "
-                    "You have access to tools to create wallets and initiate payments. "
-                    "Always confirm details before settling large amounts."
-                )
-            }
+            {"role": "system", "content": "You are Aurelius, an AI orchestrator for the autonomous agent economy."}
         ]
-        
         if chat_history:
-            # Map Gemini history format to OpenAI if needed, but assuming simple history for now
             messages.extend(chat_history)
-            
         messages.append({"role": "user", "content": prompt})
 
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
-                    f"{self.base_url}/chat/completions",
-                    headers={"Authorization": f"Bearer {self.api_key}"},
+                    f"{self.aiml_base_url}/chat/completions",
+                    headers={"Authorization": f"Bearer {self.aiml_api_key}"},
                     json={
-                        "model": self.default_model,
+                        "model": "google/gemini-2.0-flash",
                         "messages": messages,
-                        "tools": tools,
-                        "tool_choice": "auto"
+                        "tools": tools
                     }
                 )
-                
-                if response.status_code != 200:
-                    logger.error(f"AI/ML API error: {response.text}")
-                    return await self._fallback(prompt)
-                
-                resp_json = response.json()
-                message = resp_json["choices"][0]["message"]
-                
-                # Handle Tool Calls
-                if message.get("tool_calls"):
-                    tool_call = message["tool_calls"][0]
-                    func_name = tool_call["function"]["name"]
-                    func_args = json.loads(tool_call["function"]["arguments"])
-                    
-                    logger.info(f"Executing tool: {func_name} with args: {func_args}")
-                    
-                    if func_name == "create_user_wallet":
-                        result = await create_user_wallet(**func_args)
-                    elif func_name == "initiate_payment":
-                        result = await initiate_payment(**func_args)
-                    else:
-                        result = {"status": "error", "message": "Unknown tool"}
+                if response.status_code == 200:
+                    resp_json = response.json()
+                    message = resp_json["choices"][0]["message"]
+                    if message.get("tool_calls"):
+                        tool_call = message["tool_calls"][0]
+                        func_name = tool_call["function"]["name"]
+                        func_args = json.loads(tool_call["function"]["arguments"])
                         
-                    # Follow up with the tool result (this is a simple 1-step tool execution)
-                    messages.append(message)
-                    messages.append({
-                        "role": "tool",
-                        "tool_call_id": tool_call["id"],
-                        "name": func_name,
-                        "content": json.dumps(result)
-                    })
-                    
-                    final_resp = await client.post(
-                        f"{self.base_url}/chat/completions",
-                        headers={"Authorization": f"Bearer {self.api_key}"},
-                        json={
-                            "model": self.default_model,
-                            "messages": messages
-                        }
-                    )
-                    return final_resp.json()["choices"][0]["message"]["content"]
-                return message["content"]
+                        if func_name == "create_user_wallet":
+                            res = await create_user_wallet(**func_args)
+                        elif func_name == "initiate_payment":
+                            res = await initiate_payment(**func_args)
+                        else:
+                            res = {"status": "error"}
+                            
+                        return f"Tool Execution: {func_name} completed with result: {json.dumps(res)}"
+                    return message["content"]
         except Exception as e:
-            logger.warning(f"AI/ML API call failed, falling back: {e}")
-            return await self._fallback(prompt)
+            logger.error(f"AI/ML API failed: {e}")
+            
+        return await self._fallback(prompt)
 
     async def run_completion(self, prompt: str, model: str = None, system_prompt: str = None):
-        """Generic chat completion for agent reasoning without tools."""
-        if not self.api_key:
-            return await self._fallback(prompt)
+        if self.google_api_key:
+            try:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={self.google_api_key}"
+                    payload = {"contents": [{"parts": [{"text": f"{system_prompt}\n\n{prompt}" if system_prompt else prompt}]}]}
+                    resp = await client.post(url, json=payload)
+                    if resp.status_code == 200:
+                        return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+            except Exception as e:
+                logger.warning(f"Google completion failed: {e}")
 
-        messages = []
-        if system_prompt:
-            messages.append({"role": "system", "content": system_prompt})
-        messages.append({"role": "user", "content": prompt})
+        if not self.aiml_api_key:
+            return await self._fallback(prompt)
 
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
-                    f"{self.base_url}/chat/completions",
-                    headers={"Authorization": f"Bearer {self.api_key}"},
+                    f"{self.aiml_base_url}/chat/completions",
+                    headers={"Authorization": f"Bearer {self.aiml_api_key}"},
                     json={
-                        "model": model or self.default_model,
-                        "messages": messages,
-                        "temperature": 0.7
+                        "model": model or "google/gemini-2.0-flash",
+                        "messages": [
+                            {"role": "system", "content": system_prompt or ""},
+                            {"role": "user", "content": prompt}
+                        ]
                     }
                 )
-                
-                if response.status_code != 200:
-                    logger.error(f"AI/ML API error: {response.text}")
-                    return await self._fallback(prompt)
-                
-                resp_json = response.json()
-                return resp_json["choices"][0]["message"]["content"]
+                if response.status_code == 200:
+                    return response.json()["choices"][0]["message"]["content"]
         except Exception as e:
-            logger.warning(f"AI/ML API completion failed, falling back: {e}")
-            return await self._fallback(prompt)
+            logger.error(f"AI/ML API completion failed: {e}")
+
+        return await self._fallback(prompt)
 
     async def _fallback(self, prompt: str):
-        """Fallback to Featherless Llama 3.1 70B"""
         from app.services.featherless_service import featherless_service
         try:
-            logger.info("Using Featherless fallback reasoning engine")
             return await featherless_service.run_inference(
                 model_id="mistralai/Mistral-7B-Instruct-v0.2",
-                prompt=f"System: You are Aurelius, an AI orchestrator for the autonomous agent economy on Arc.\n\nUser: {prompt}"
+                prompt=prompt
             )
-        except Exception as e:
-            logger.error(f"Reasoning fallback failed: {e}")
-            return "Execution failed. No reasoning model available."
+        except:
+            return "Fallback reasoning failed."
 
 gemini_service = GeminiService()
