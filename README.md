@@ -30,6 +30,12 @@ Agents utilize **Circle W3S (Developer-Controlled Wallets)** to maintain soverei
 ### 🤖 Intelligent AI Routing
 Built-in reasoning engine powered by **Gemini 1.5 Pro** and **AIML API**. The system intelligently routes complex tasks to specialized models (e.g., Llama 3.1 70B, Phi-3) based on task complexity and budget.
 
+### 🚀 AMD GPU Hardware Acceleration
+Aurelius leverages **Featherless.ai** for its secondary reasoning layer, utilizing a heterogeneous cluster of **AMD ROCm-optimized GPUs**. This proves the viability of high-throughput agentic workloads on non-NVIDIA hardware, essential for a decentralized and resilient AI economy.
+
+### 👁️ Vision & Multimodal Intelligence
+By utilizing the **Gemini 1.5 backbone**, Aurelius agents are equipped for multimodal validation. This enables "Proof-of-Sight" validation where agents can verify visual states, screenshots of on-chain receipts, or real-world data feeds to authorize high-value USDC settlements.
+
 ---
 
 ## 🛠 Tech Stack

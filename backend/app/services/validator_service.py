@@ -41,6 +41,13 @@ VALIDATORS = [
         "price_usdc": 0.003,
         "reputation_score": 85,
     },
+    {
+        "id": "validator_multimodal_1",
+        "name": "Vision & Multimodal",
+        "check_type": "multimodal",
+        "price_usdc": 0.008,
+        "reputation_score": 98,
+    },
 ]
 
 async def seed_validators(db):
@@ -101,7 +108,8 @@ async def run_validator(check_type: str, prompt: str, draft_response: str, payme
         "hallucination": "Verify if the draft response contains factual errors or 'hallucinations' for the given prompt.",
         "pii": "Scan for Personal Identifiable Information (PII) leakage like SSNs, passport numbers, or credit card details.",
         "safety": "Identify unsafe content, self-harm instructions, or illegal weapon manufacturing details.",
-        "compliance": "Check for financial compliance violations like tax evasion advice or money laundering schemes."
+        "compliance": "Check for financial compliance violations like tax evasion advice or money laundering schemes.",
+        "multimodal": "Analyze the request for vision-based data requirements and multimodal context. Verify if visual proof of state is required."
     }
     
     prompt_for_gemini = (
