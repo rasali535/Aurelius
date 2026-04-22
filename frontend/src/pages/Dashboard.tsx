@@ -11,7 +11,6 @@ import type { DashboardSummary, PromptRunResponse } from "../types";
 
 export default function Dashboard({ onBack }: { onBack: () => void }) {
   const [run, setRun] = useState<PromptRunResponse | null>(null);
-  const [routerResults, setRouterResults] = useState<any[]>([]);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [isSimulating, setIsSimulating] = useState(true); 
   const [isBatchRunning, setIsBatchRunning] = useState(false);
@@ -55,8 +54,7 @@ export default function Dashboard({ onBack }: { onBack: () => void }) {
 
   const handleRouterRun = async (task: string) => {
     try {
-      const res = await api.post("/router/execute", { task });
-      setRouterResults(prev => [res.data, ...prev].slice(0, 10));
+      await api.post("/router/execute", { task });
       await fetchSummary();
     } catch (err) {
       console.error("Router execution failed", err);
@@ -164,10 +162,9 @@ export default function Dashboard({ onBack }: { onBack: () => void }) {
         <div className="neural-core">
           <AgentPaymentFlow isLive={isSimulating || isBatchRunning} />
 
-          {(run || routerResults.length > 0) && (
+          {run && (
             <ValidatorPanel 
               run={run}
-              routerResults={routerResults}
             />
           )}
 

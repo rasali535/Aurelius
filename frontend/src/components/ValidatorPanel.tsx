@@ -2,42 +2,9 @@ import type { PromptRunResponse } from "../types";
 
 type Props = {
   run: PromptRunResponse | null;
-  routerResults?: any[];
 };
 
-export default function ValidatorPanel({ run, routerResults = [] }: Props) {
-  if (routerResults.length > 0) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        {routerResults.map((res, idx) => (
-          <div key={res.run_id || idx} className="card fade-in" style={{ margin: 0 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h2 style={{ margin: 0, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Neural_Router_Output</h2>
-              <span className="status-badge settled" style={{ background: 'var(--success)', color: 'var(--background)', padding: '4px 12px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 700 }}>
-                SETTLED: ${res.price_usdc} USDC
-              </span>
-            </div>
-            
-            <div style={{ marginBottom: '24px', borderLeft: '2px solid var(--primary)', paddingLeft: '20px' }}>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontFamily: 'var(--terminal-font)', marginBottom: '8px' }}>
-                [EXECUTING_MODEL]: {res.model_id}
-              </p>
-              <div style={{ fontSize: '1.1rem', lineHeight: '1.6', color: 'var(--text-main)' }}>
-                {res.output}
-              </div>
-            </div>
-
-            <div className="reasoning-block" style={{ background: 'rgba(0, 242, 255, 0.05)', padding: '15px', borderRadius: '4px', border: '1px dashed var(--panel-border)' }}>
-              <p style={{ fontSize: '0.75rem', fontFamily: 'var(--terminal-font)', margin: 0 }}>
-                <span style={{ color: 'var(--primary)' }}>[REASONING_ENGINE]:</span> {res.reasoning}
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
+export default function ValidatorPanel({ run }: Props) {
   return (
     <div className="card">
       <h2 style={{ textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '20px' }}>Validator_Swarm_Diagnostics</h2>
