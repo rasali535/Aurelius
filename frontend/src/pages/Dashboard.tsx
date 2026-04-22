@@ -11,7 +11,7 @@ import type { DashboardSummary, PromptRunResponse } from "../types";
 
 export default function Dashboard({ onBack }: { onBack: () => void }) {
   const [run, setRun] = useState<PromptRunResponse | null>(null);
-  const [routerResult, setRouterResult] = useState<any | null>(null);
+  const [routerResults, setRouterResults] = useState<any[]>([]);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [isSimulating, setIsSimulating] = useState(true); 
   const [isBatchRunning, setIsBatchRunning] = useState(false);
@@ -21,7 +21,9 @@ export default function Dashboard({ onBack }: { onBack: () => void }) {
   const fetchSummary = async () => {
     try {
       const res = await api.get("/dashboard/summary");
-      setSummary(res.data);
+      if (res.data && res.data.total_prompt_runs !== undefined) {
+        setSummary(res.data);
+      }
     } catch (err) {
       console.error("Critical: Summary data fetch failed", err);
     }
@@ -54,7 +56,7 @@ export default function Dashboard({ onBack }: { onBack: () => void }) {
   const handleRouterRun = async (task: string) => {
     try {
       const res = await api.post("/router/execute", { task });
-      setRouterResult(res.data);
+      setRouterResults(prev => [res.data, ...prev].slice(0, 10));
       await fetchSummary();
     } catch (err) {
       console.error("Router execution failed", err);
@@ -162,10 +164,10 @@ export default function Dashboard({ onBack }: { onBack: () => void }) {
         <div className="neural-core">
           <AgentPaymentFlow isLive={isSimulating || isBatchRunning} />
 
-          {(run || routerResult) && (
+          {(run || routerResults.length > 0) && (
             <ValidatorPanel 
               run={run}
-              routerResult={routerResult}
+              routerResults={routerResults}
             />
           )}
 

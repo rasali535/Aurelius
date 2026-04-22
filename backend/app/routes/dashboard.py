@@ -38,13 +38,8 @@ async def dashboard_summary():
         }
     except Exception as e:
         print(f"Dashboard summary error: {e}")
-        return {
-            "total_prompt_runs": 0,
-            "total_validations": 0,
-            "total_payments": 0,
-            "total_spend_usdc": 0,
-            "latest_transactions": [],
-        }
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail="Database error in summary")
 
 @router.get("/dashboard/validators")
 async def dashboard_validators():
