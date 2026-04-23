@@ -1,37 +1,22 @@
+import logging
 import asyncio
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-import logging
-import sys
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Configure logging to stdout
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    stream=sys.stdout
-)
-logger = logging.getLogger("aurelius")
-
+from app.db import init_db, db
+from app.routes import orchestrator, dashboard, commerce
 from app.config import settings
-from app.db import db
-from app.db import init_db
-from app.routes.dashboard import router as dashboard_router
-from app.routes.health import router as health_router
-from app.routes.orchestrator import router as orchestrator_router
-from app.routes.validators import router as validators_router
-from app.routes.market import router as market_router
-from app.routes.commerce import router as commerce_router
-from app.routes.router import router as task_router
-from app.services.validator_service import seed_validators
 
-logger.info("Starting Aurelius Backend initialization...")
+app = FastAPI(title="Aurelius Backend")
 
-app = FastAPI(title="Aurelius API")
-
-# Build CORS origins dynamically from FRONTEND_ORIGIN env var
+# Build CORS origins dynamically
 _dev_origins = ["http://localhost:5173", "http://localhost:3000"]
+_static_origins = ["https://lightseagreen-bear-113896.hostingersite.com", "https://aurelius-production-2ec3.up.railway.app"]
 _frontend_origin_env = os.environ.get("FRONTEND_ORIGIN", "")
 
 if _frontend_origin_env:
@@ -40,8 +25,6 @@ if _frontend_origin_env:
         _origin = _raw.strip()
         if not _origin:
             continue
-        # If the value already includes a scheme, use it as-is;
-        # otherwise add both https:// and http:// variants.
         if _origin.startswith("http://") or _origin.startswith("https://"):
             _configured_origins.append(_origin)
         else:
@@ -50,8 +33,7 @@ if _frontend_origin_env:
 else:
     _configured_origins = []
 
-_allow_origins = _configured_origins + _dev_origins
-
+_allow_origins = list(set(_configured_origins + _dev_origins + _static_origins))
 logger.info("CORS allow_origins: %s", _allow_origins)
 
 app.add_middleware(
@@ -62,31 +44,39 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(orchestrator.router, prefix="/api")
+app.include_router(dashboard.router, prefix="/api")
+app.include_router(commerce.router, prefix="/api")
+
 @app.get("/")
 async def root():
+    return {"message": "Aurelius AI Lead Agent API", "status": "active"}
+
+@app.get("/health")
+async def health():
     return {"status": "alive", "database": "initialized" if db._db else "pending"}
 
 @app.on_event("startup")
 async def startup_event():
     # Immediate start to satisfy Railway health check
-    from app.db import db as db_proxy
-    asyncio.create_task(deferred_startup(db_proxy))
+    # Defer database initialization and seeding to a background task
+    asyncio.create_task(deferred_startup())
 
-async def deferred_startup(db_proxy):
+async def deferred_startup():
     try:
-        initialized_db = await init_db()
-        db_proxy.set_db(initialized_db)
-        await seed_validators(db_proxy)
-        print("Backend services fully initialized in background.")
+        print("Starting Aurelius Backend deferred initialization...")
+        db_instance = await init_db()
+        db.set_db(db_instance)
+        
+        # Seed validators
+        from app.services.validator_service import seed_validators
+        await seed_validators(db)
+        
+        print("Aurelius Backend initialized successfully.")
     except Exception as e:
-        print(f"Deferred initialization failed: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"CRITICAL: Backend initialization failed: {e}")
+        logger.error(f"Backend initialization failed: {e}")
 
-app.include_router(health_router)
-app.include_router(orchestrator_router, prefix="/api")
-app.include_router(dashboard_router, prefix="/api")
-app.include_router(validators_router, prefix="/api")
-app.include_router(market_router, prefix="/api")
-app.include_router(commerce_router, prefix="/api/commerce")
-app.include_router(task_router, prefix="/api/router")
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

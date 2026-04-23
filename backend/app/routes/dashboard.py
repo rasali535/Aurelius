@@ -21,7 +21,10 @@ async def dashboard_summary():
         total_spend_usdc = total_spend_pipeline[0]["total"] if total_spend_pipeline else 0.0
 
         for p in payments:
-            p["id"] = str(p.pop("_id"))
+            if "_id" in p:
+                p["id"] = str(p.pop("_id"))
+            elif "id" in p:
+                p["_id"] = p["id"]
 
         requester_wallet = await db.config.find_one({"_id": "requester_wallet"})
         wallet_address = requester_wallet.get("wallet_address") if requester_wallet else "0x_NOT_CONFIGURED"

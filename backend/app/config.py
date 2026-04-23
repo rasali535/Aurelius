@@ -20,6 +20,11 @@ class Settings:
     FEATHERLESS_API_KEY = os.getenv("FEATHERLESS_API_KEY")
     AIML_API_KEY = os.getenv("AIML_API_KEY")
     AIML_API_URL = os.getenv("AIML_API_URL", "https://api.aimlapi.com/v1")
+    MONGODB_ATLAS_PUBLIC_KEY = os.getenv("MONGODB_ATLAS_PUBLIC_KEY")
+    MONGODB_ATLAS_PRIVATE_KEY = os.getenv("MONGODB_ATLAS_PRIVATE_KEY")
+    SUPABASE_URL = os.getenv("SUPABASE_URL")
+    SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+    DATABASE_URL = os.getenv("DATABASE_URL")
     MOCK_PAYMENTS = os.getenv("MOCK_PAYMENTS", "false").lower() == "true"
 
 settings = Settings()

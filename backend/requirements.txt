@@ -9,3 +9,6 @@ eth-account
 cryptography
 mongomock
 gunicorn
+postgrest
+httpx
+gunicorn
