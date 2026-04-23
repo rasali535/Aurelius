@@ -16,7 +16,7 @@ logger = logging.getLogger("aurelius")
 logger.info(">>> AURELIUS BACKEND STARTING <<<")
 
 # Check Port
-PORT = int(os.getenv("PORT", 8080))
+PORT = int(os.getenv("PORT", 3000))
 logger.info(f"Target Port: {PORT}")
 
 # --- Initialize FastAPI ---
