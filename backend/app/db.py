@@ -281,14 +281,18 @@ async def init_db() -> PGDatabase:
     if db_url.startswith("postgres://"):
         db_url = db_url.replace("postgres://", "postgresql://", 1)
 
+    import ssl
+    ssl_ctx = ssl.create_default_context()
+    # Supabase pooler requires SSL. We'll use the default context which trusts standard CAs.
+    # If the user's environment lacks CA certs, this might still fail, but it's the correct approach.
+    
     print(f"Connecting to PostgreSQL...", flush=True)
     try:
-        # Use simpler SSL setting which works more broadly
         pool = await asyncpg.create_pool(
             dsn=db_url,
             min_size=1,
             max_size=5,
-            ssl=True, 
+            ssl=ssl_ctx, 
             command_timeout=60,
             statement_cache_size=0,
         )
