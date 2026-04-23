@@ -12,7 +12,7 @@ from app.services.orchestrator_service import process_prompt_run
 async def main():
     print("Starting W3S Settlement Verification...")
     
-    # Initialize DB (will fallback to mongomock if needed)
+    # Initialize DB (will fail if Supabase is not configured)
     initialized_db = await init_db()
     db.set_db(initialized_db)
     
