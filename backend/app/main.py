@@ -22,7 +22,8 @@ app.add_middleware(
         "http://localhost:5173",
         "http://localhost:3000",
         "https://lightseagreen-bear-113896.hostingersite.com",
-        settings.FRONTEND_ORIGIN
+        "http://lightseagreen-bear-113896.hostingersite.com",
+        settings.FRONTEND_ORIGIN.rstrip("/")
     ],
     allow_credentials=True,
     allow_methods=["*"],
