@@ -2,17 +2,30 @@ import asyncio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+import logging
+import sys
+
+# Configure logging to stdout
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    stream=sys.stdout
+)
+logger = logging.getLogger("aurelius")
+
 from app.config import settings
 from app.db import db
+from app.db import init_db
+from app.routes.dashboard import router as dashboard_router
 from app.routes.health import router as health_router
 from app.routes.orchestrator import router as orchestrator_router
-from app.routes.dashboard import router as dashboard_router
 from app.routes.validators import router as validators_router
+from app.routes.market import router as market_router
 from app.routes.commerce import router as commerce_router
 from app.routes.router import router as task_router
-from app.routes.market import router as market_router
 from app.services.validator_service import seed_validators
-from app.db import init_db
+
+logger.info("Starting Aurelius Backend initialization...")
 
 app = FastAPI(title="Aurelius API")
 
