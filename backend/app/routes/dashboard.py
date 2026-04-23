@@ -15,9 +15,10 @@ async def dashboard_summary():
             {"_id": 1, "amount_usdc": 1, "status": 1, "tx_hash": 1, "settled_at": 1}
         ).sort("settled_at", -1).limit(20).to_list(length=20)
 
-        total_spend_pipeline = await db.payment_events.aggregate([
+        _agg_cursor = await db.payment_events.aggregate([
             {"$group": {"_id": None, "total": {"$sum": "$amount_usdc"}}}
-        ]).to_list(length=1)
+        ])
+        total_spend_pipeline = await _agg_cursor.to_list(length=1)
         total_spend_usdc = total_spend_pipeline[0]["total"] if total_spend_pipeline else 0.0
 
         for p in payments:

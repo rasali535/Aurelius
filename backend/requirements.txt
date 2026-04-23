@@ -1,14 +1,10 @@
 fastapi
 uvicorn
-pymongo
-motor
 pydantic
 python-dotenv
 httpx
 eth-account
 cryptography
-mongomock
 gunicorn
-postgrest
-httpx
-gunicorn
+asyncpg
+psycopg2-binary
