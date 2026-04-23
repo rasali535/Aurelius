@@ -3,19 +3,15 @@ PostgreSQL-backed database layer for Aurelius.
 
 Provides a MongoDB-style async API (find_one, insert_one, update_one, etc.)
 over asyncpg so that existing service code requires minimal changes.
-
-Each logical "collection" maps to a PostgreSQL table with the schema:
-    id   TEXT PRIMARY KEY   -- the document _id
-    data JSONB NOT NULL     -- the full document payload (excluding _id)
 """
 
 import json
-from typing import Optional
+from typing import Optional, List
 import os
 import asyncio
 import asyncpg
 from app.config import settings
-
+from app.utils import generate_id
 
 # ---------------------------------------------------------------------------
 # Cursor / query builder
@@ -28,15 +24,14 @@ class PGCursor:
         self._pool = pool
         self._table = table
         self._filter = filter_doc or {}
-        self._projection = projection  # not enforced server-side; filtered in Python
+        self._projection = projection 
         self._sort_field: Optional[str] = None
-        self._sort_dir: int = 1          # 1 = ASC, -1 = DESC
+        self._sort_dir: int = 1 
         self._limit_val: Optional[int] = None
         self._skip_val: int = 0
 
     def sort(self, key_or_list, direction=None):
         if isinstance(key_or_list, list):
-            # e.g. [("field", -1)]
             self._sort_field, self._sort_dir = key_or_list[0]
         else:
             self._sort_field = key_or_list
@@ -68,11 +63,6 @@ class PGCursor:
 # ---------------------------------------------------------------------------
 
 def _build_where(filter_doc: dict):
-    """
-    Converts a flat filter dict into a WHERE clause + params list.
-    Supports simple equality and the $in operator.
-    Returns (where_sql, params).
-    """
     if not filter_doc:
         return "", []
 
@@ -106,7 +96,6 @@ def _build_where(filter_doc: dict):
 
 
 def _row_to_doc(row) -> dict:
-    """Convert a DB row (id, data) into a document dict with _id."""
     data = row["data"]
     if isinstance(data, str):
         doc = json.loads(data)
@@ -128,7 +117,7 @@ async def _ensure_table(pool, table: str):
 
 async def _query_rows(pool, table: str, filter_doc: dict,
                       sort_field=None, sort_dir=1,
-                      limit=None, skip=0) -> list[dict]:
+                      limit=None, skip=0) -> List[dict]:
     where, params = _build_where(filter_doc)
     sql = f"SELECT id, data FROM {table}"
     if where:
@@ -156,13 +145,9 @@ async def _query_rows(pool, table: str, filter_doc: dict,
 # ---------------------------------------------------------------------------
 
 class PGCollection:
-    """Mimics a MongoDB async collection using a PostgreSQL table."""
-
     def __init__(self, pool, table: str):
         self._pool = pool
         self._table = table
-
-    # --- read ---
 
     async def find_one(self, filter_doc: dict = None) -> Optional[dict]:
         rows = await _query_rows(self._pool, self._table, filter_doc or {}, limit=1)
@@ -181,19 +166,12 @@ class PGCollection:
         return row[0]
 
     def aggregate(self, pipeline: list) -> "PGAggregateCursor":
-        """
-        Supports a single $group stage with $sum on a numeric JSONB field.
-        Returns a cursor-like object with .to_list().
-        """
         return PGAggregateCursor(self._pool, self._table, pipeline)
-
-    # --- write ---
 
     async def insert_one(self, document: dict):
         doc = dict(document)
         doc_id = str(doc.pop("_id", None) or "")
         if not doc_id:
-            from app.utils import generate_id
             doc_id = generate_id("doc")
 
         data_json = json.dumps(doc)
@@ -207,7 +185,6 @@ class PGCollection:
 
     async def update_one(self, filter_doc: dict, update_doc: dict, upsert: bool = False):
         existing = await self.find_one(filter_doc)
-
         set_fields = update_doc.get("$set", {})
 
         if existing:
@@ -221,10 +198,8 @@ class PGCollection:
                     data_json, doc_id
                 )
         elif upsert:
-            # Determine the id from the filter or generate one
             doc_id = str(filter_doc.get("_id", ""))
             if not doc_id:
-                from app.utils import generate_id
                 doc_id = generate_id("doc")
             data_json = json.dumps(set_fields)
             async with self._pool.acquire() as conn:
@@ -242,18 +217,8 @@ class PGCollection:
         async with self._pool.acquire() as conn:
             await conn.execute(sql, *params)
 
-    async def delete_one(self, filter_doc: dict):
-        existing = await self.find_one(filter_doc)
-        if existing:
-            async with self._pool.acquire() as conn:
-                await conn.execute(
-                    f"DELETE FROM {self._table} WHERE id = $1", existing["_id"]
-                )
-
 
 class PGAggregateCursor:
-    """Handles simple $group + $sum aggregation pipelines."""
-
     def __init__(self, pool, table: str, pipeline: list):
         self._pool = pool
         self._table = table
@@ -270,7 +235,7 @@ class PGAggregateCursor:
                     if isinstance(expr, dict) and "$sum" in expr:
                         sum_field = expr["$sum"]
                         if isinstance(sum_field, str) and sum_field.startswith("$"):
-                            col = sum_field[1:]  # strip leading $
+                            col = sum_field[1:]
                             sql = (
                                 f"SELECT COALESCE(SUM((data->>'{col}')::numeric), 0) "
                                 f"FROM {self._table}"
@@ -287,7 +252,6 @@ class PGAggregateCursor:
 # Database wrapper
 # ---------------------------------------------------------------------------
 
-# Tables that will be created on startup
 _TABLES = [
     "prompt_runs",
     "validation_requests",
@@ -299,13 +263,10 @@ _TABLES = [
 
 
 class PGDatabase:
-    """Top-level database object — attribute access returns PGCollection."""
-
     def __init__(self, pool):
         self._pool = pool
 
     def __getattr__(self, name: str) -> PGCollection:
-        # Any attribute access returns a collection for that table name
         return PGCollection(self._pool, name)
 
     def __getitem__(self, name: str) -> PGCollection:
@@ -313,61 +274,54 @@ class PGDatabase:
 
 
 async def init_db() -> PGDatabase:
-    """Create the asyncpg connection pool and ensure all tables exist."""
     db_url = os.getenv("DATABASE_URL", "").strip()
     if not db_url:
-        raise RuntimeError(
-            "DATABASE_URL environment variable is not set. "
-            "Please configure it to point to your PostgreSQL instance."
-        )
+        raise RuntimeError("DATABASE_URL not set.")
 
-    # asyncpg expects postgresql:// scheme
     if db_url.startswith("postgres://"):
         db_url = db_url.replace("postgres://", "postgresql://", 1)
 
-    print(f"Connecting to PostgreSQL at {db_url.split('@')[-1]}...", flush=True) # Log host only for safety
+    print(f"Connecting to PostgreSQL...", flush=True)
     try:
+        # Use simpler SSL setting which works more broadly
         pool = await asyncpg.create_pool(
             dsn=db_url,
             min_size=1,
-            max_size=5, # Reduce to be safer for free-tier DBs
+            max_size=5,
+            ssl=True, 
             command_timeout=60,
-            ssl='require',
-            timeout=30, # Connection timeout
             statement_cache_size=0,
         )
     except Exception as e:
         print(f"FAILED to connect to PostgreSQL: {e}", flush=True)
         raise
 
-    # Ensure all tables exist
     for table in _TABLES:
         await _ensure_table(pool, table)
 
-    print("PostgreSQL connection pool established and schema verified.", flush=True)
+    print("PostgreSQL ready.", flush=True)
     return PGDatabase(pool)
 
 async def seed_initial_data(db_instance):
-    """Seeds the database with initial agents and config if they don't exist."""
     print("Seeding initial data...", flush=True)
     
     # 1. Seed Validators
     from app.services.validator_service import seed_validators
-    await seed_validators(db_instance)
+    try:
+        await seed_validators(db_instance)
+    except Exception as e:
+        print(f"Validator seeding failed: {e}", flush=True)
     
-    # 2. Seed Requester Wallet (so it's not 'pending' in the UI)
+    # 2. Seed Requester Wallet
     from app.services.orchestrator_service import get_or_create_requester_wallet
     try:
         await get_or_create_requester_wallet(db_instance)
-        print("Requester wallet verified/created.", flush=True)
+        print("Requester wallet ready.", flush=True)
     except Exception as e:
-        print(f"Warning: Failed to seed requester wallet: {e}", flush=True)
+        print(f"Wallet seeding failed: {e}", flush=True)
 
     print("Seeding complete.", flush=True)
 
-# ---------------------------------------------------------------------------
-# Proxy (keeps the same import interface as before)
-# ---------------------------------------------------------------------------
 
 class DBProxy:
     def __init__(self):
@@ -378,12 +332,12 @@ class DBProxy:
 
     def __getattr__(self, name: str):
         if self._db is None:
-            raise RuntimeError("Database not initialized. Call init_db() first.")
+            raise RuntimeError("Database not initialized.")
         return getattr(self._db, name)
 
     def __getitem__(self, name: str):
         if self._db is None:
-            raise RuntimeError("Database not initialized. Call init_db() first.")
+            raise RuntimeError("Database not initialized.")
         return self._db[name]
 
 

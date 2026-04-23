@@ -15,7 +15,7 @@ async def dashboard_summary():
             {"_id": 1, "amount_usdc": 1, "status": 1, "tx_hash": 1, "settled_at": 1}
         ).sort("settled_at", -1).limit(20).to_list(length=20)
 
-        _agg_cursor = await db.payment_events.aggregate([
+        _agg_cursor = db.payment_events.aggregate([
             {"$group": {"_id": None, "total": {"$sum": "$amount_usdc"}}}
         ])
         total_spend_pipeline = await _agg_cursor.to_list(length=1)
