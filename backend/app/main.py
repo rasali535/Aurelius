@@ -1,4 +1,5 @@
 import asyncio
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -29,14 +30,33 @@ logger.info("Starting Aurelius Backend initialization...")
 
 app = FastAPI(title="Aurelius API")
 
+# Build CORS origins dynamically from FRONTEND_ORIGIN env var
+_dev_origins = ["http://localhost:5173", "http://localhost:3000"]
+_frontend_origin_env = os.environ.get("FRONTEND_ORIGIN", "")
+
+if _frontend_origin_env:
+    _configured_origins = []
+    for _raw in _frontend_origin_env.split(","):
+        _origin = _raw.strip()
+        if not _origin:
+            continue
+        # If the value already includes a scheme, use it as-is;
+        # otherwise add both https:// and http:// variants.
+        if _origin.startswith("http://") or _origin.startswith("https://"):
+            _configured_origins.append(_origin)
+        else:
+            _configured_origins.append(f"https://{_origin}")
+            _configured_origins.append(f"http://{_origin}")
+else:
+    _configured_origins = []
+
+_allow_origins = _configured_origins + _dev_origins
+
+logger.info("CORS allow_origins: %s", _allow_origins)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://lightseagreen-bear-113896.hostingersite.com",
-        "http://lightseagreen-bear-113896.hostingersite.com",
-        "http://localhost:5173",
-        "http://localhost:3000"
-    ],
+    allow_origins=_allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
