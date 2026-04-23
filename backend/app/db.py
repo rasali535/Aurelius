@@ -1,199 +1,361 @@
-import asyncio
-import httpx
-from postgrest import AsyncPostgrestClient
+"""
+PostgreSQL-backed database layer for Aurelius.
+
+Provides a MongoDB-style async API (find_one, insert_one, update_one, etc.)
+over asyncpg so that existing service code requires minimal changes.
+
+Each logical "collection" maps to a PostgreSQL table with the schema:
+    id   TEXT PRIMARY KEY   -- the document _id
+    data JSONB NOT NULL     -- the full document payload (excluding _id)
+"""
+
+import json
+from typing import Optional
+import asyncpg
 from app.config import settings
 
-class SupabaseCursorWrapper:
-    def __init__(self, data):
-        self._data = data
 
-    def sort(self, key, direction=1):
-        reverse = direction == -1
-        try:
-            self._data.sort(key=lambda x: x.get(key) or "", reverse=reverse)
-        except:
-            pass
+# ---------------------------------------------------------------------------
+# Cursor / query builder
+# ---------------------------------------------------------------------------
+
+class PGCursor:
+    """Lazy cursor returned by collection.find() — supports chaining."""
+
+    def __init__(self, pool, table: str, filter_doc: dict, projection: dict = None):
+        self._pool = pool
+        self._table = table
+        self._filter = filter_doc or {}
+        self._projection = projection  # not enforced server-side; filtered in Python
+        self._sort_field: Optional[str] = None
+        self._sort_dir: int = 1          # 1 = ASC, -1 = DESC
+        self._limit_val: Optional[int] = None
+        self._skip_val: int = 0
+
+    def sort(self, key_or_list, direction=None):
+        if isinstance(key_or_list, list):
+            # e.g. [("field", -1)]
+            self._sort_field, self._sort_dir = key_or_list[0]
+        else:
+            self._sort_field = key_or_list
+            self._sort_dir = direction if direction is not None else 1
         return self
 
     def limit(self, n):
-        self._data = self._data[:n]
+        self._limit_val = n
+        return self
+
+    def skip(self, n):
+        self._skip_val = n
         return self
 
     async def to_list(self, length=None):
-        if length is not None:
-            return self._data[:length]
-        return self._data
+        effective_limit = length or self._limit_val
+        rows = await _query_rows(
+            self._pool, self._table, self._filter,
+            sort_field=self._sort_field,
+            sort_dir=self._sort_dir,
+            limit=effective_limit,
+            skip=self._skip_val,
+        )
+        return rows
 
-class SupabaseCollectionWrapper:
-    def __init__(self, client: AsyncPostgrestClient, table_name: str):
-        self._client = client
-        self._table_name = table_name
 
-    def _map_id(self, data):
-        if not data: return data
-        if isinstance(data, list):
-            return [self._map_id(item) for item in data]
-        if "id" in data:
-            data["_id"] = data["id"]
-        elif "_id" in data:
-            data["id"] = data["_id"]
-        return data
+# ---------------------------------------------------------------------------
+# Internal SQL helpers
+# ---------------------------------------------------------------------------
 
-    async def insert_one(self, document):
-        doc = document.copy()
-        if "_id" in doc:
-            if "id" not in doc:
-                doc["id"] = doc.pop("_id")
+def _build_where(filter_doc: dict):
+    """
+    Converts a flat filter dict into a WHERE clause + params list.
+    Supports simple equality and the $in operator.
+    Returns (where_sql, params).
+    """
+    if not filter_doc:
+        return "", []
+
+    clauses = []
+    params = []
+    idx = 1
+
+    for key, value in filter_doc.items():
+        if key == "_id":
+            if isinstance(value, dict) and "$in" in value:
+                placeholders = ", ".join(f"${i}" for i in range(idx, idx + len(value["$in"])))
+                clauses.append(f"id IN ({placeholders})")
+                params.extend(value["$in"])
+                idx += len(value["$in"])
             else:
-                doc.pop("_id")
-        
-        resp = await self._client.table(self._table_name).insert(doc).execute()
-        return self._map_id(resp.data[0] if resp.data else None)
+                clauses.append(f"id = ${idx}")
+                params.append(str(value))
+                idx += 1
+        else:
+            if isinstance(value, dict) and "$in" in value:
+                placeholders = ", ".join(f"${i}" for i in range(idx, idx + len(value["$in"])))
+                clauses.append(f"data->>'{key}' IN ({placeholders})")
+                params.extend([str(v) for v in value["$in"]])
+                idx += len(value["$in"])
+            else:
+                clauses.append(f"data->>'{key}' = ${idx}")
+                params.append(str(value))
+                idx += 1
 
-    async def find_one(self, filter):
-        query = self._client.table(self._table_name).select("*")
-        for k, v in filter.items():
-            key = "id" if k == "_id" else k
-            query = query.eq(key, v)
-        
-        resp = await query.limit(1).execute()
-        data = resp.data[0] if resp.data else None
-        return self._map_id(data)
+    return " AND ".join(clauses), params
 
-    def find(self, filter=None, projection=None):
-        query = self._client.table(self._table_name).select("*")
-        if filter:
-            for k, v in filter.items():
-                key = "id" if k == "_id" else k
-                query = query.eq(key, v)
-        
-        class AsyncCursor:
-            def __init__(self, query_builder, map_fn):
-                self.query_builder = query_builder
-                self.map_fn = map_fn
 
-            def sort(self, key, direction=1):
-                desc = direction == -1
-                self.query_builder = self.query_builder.order(key, desc=desc)
-                return self
+def _row_to_doc(row) -> dict:
+    """Convert a DB row (id, data) into a document dict with _id."""
+    doc = dict(row["data"]) if row["data"] else {}
+    doc["_id"] = row["id"]
+    return doc
 
-            def limit(self, n):
-                self.query_builder = self.query_builder.limit(n)
-                return self
 
-            async def to_list(self, length=None):
-                resp = await self.query_builder.execute()
-                data = self.map_fn(resp.data)
-                if length:
-                    return data[:length]
-                return data
+async def _ensure_table(pool, table: str):
+    async with pool.acquire() as conn:
+        await conn.execute(f"""
+            CREATE TABLE IF NOT EXISTS {table} (
+                id   TEXT PRIMARY KEY,
+                data JSONB NOT NULL DEFAULT '{{}}'::jsonb
+            )
+        """)
 
-        return AsyncCursor(query, self._map_id)
 
-    async def update_one(self, filter, update, upsert=False):
-        data_to_update = update.get("$set", update)
-        
-        if upsert:
-            # For upsert, we need to merge filter and data
-            upsert_doc = data_to_update.copy()
-            for k, v in filter.items():
-                key = "id" if k == "_id" else k
-                upsert_doc[key] = v
-            
-            # Postgrest upsert uses on_conflict if needed, 
-            # but by default it uses the primary key.
-            resp = await self._client.table(self._table_name).upsert(upsert_doc).execute()
-            return self._map_id(resp.data[0] if resp.data else None)
+async def _query_rows(pool, table: str, filter_doc: dict,
+                      sort_field=None, sort_dir=1,
+                      limit=None, skip=0) -> list[dict]:
+    where, params = _build_where(filter_doc)
+    sql = f"SELECT id, data FROM {table}"
+    if where:
+        sql += f" WHERE {where}"
 
-        query = self._client.table(self._table_name).update(data_to_update)
-        for k, v in filter.items():
-            key = "id" if k == "_id" else k
-            query = query.eq(key, v)
-        
-        resp = await query.execute()
-        return self._map_id(resp.data[0] if resp.data else None)
+    if sort_field:
+        direction = "ASC" if sort_dir >= 0 else "DESC"
+        if sort_field == "_id":
+            sql += f" ORDER BY id {direction}"
+        else:
+            sql += f" ORDER BY data->>'{sort_field}' {direction}"
 
-    async def count_documents(self, filter=None):
-        query = self._client.table(self._table_name).select("*", count="exact")
-        if filter:
-            for k, v in filter.items():
-                key = "id" if k == "_id" else k
-                query = query.eq(key, v)
-        
-        resp = await query.limit(0).execute()
-        return resp.count or 0
+    if skip:
+        sql += f" OFFSET {skip}"
+    if limit is not None:
+        sql += f" LIMIT {limit}"
 
-    def aggregate(self, pipeline):
-        field_to_sum = None
-        for stage in pipeline:
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(sql, *params)
+    return [_row_to_doc(r) for r in rows]
+
+
+# ---------------------------------------------------------------------------
+# Collection wrapper
+# ---------------------------------------------------------------------------
+
+class PGCollection:
+    """Mimics a MongoDB async collection using a PostgreSQL table."""
+
+    def __init__(self, pool, table: str):
+        self._pool = pool
+        self._table = table
+
+    # --- read ---
+
+    async def find_one(self, filter_doc: dict = None) -> Optional[dict]:
+        rows = await _query_rows(self._pool, self._table, filter_doc or {}, limit=1)
+        return rows[0] if rows else None
+
+    def find(self, filter_doc: dict = None, projection: dict = None) -> PGCursor:
+        return PGCursor(self._pool, self._table, filter_doc or {}, projection)
+
+    async def count_documents(self, filter_doc: dict = None) -> int:
+        where, params = _build_where(filter_doc or {})
+        sql = f"SELECT COUNT(*) FROM {self._table}"
+        if where:
+            sql += f" WHERE {where}"
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(sql, *params)
+        return row[0]
+
+    async def aggregate(self, pipeline: list) -> "PGAggregateCursor":
+        """
+        Supports a single $group stage with $sum on a numeric JSONB field.
+        Returns a cursor-like object with .to_list().
+        """
+        return PGAggregateCursor(self._pool, self._table, pipeline)
+
+    # --- write ---
+
+    async def insert_one(self, document: dict):
+        doc = dict(document)
+        doc_id = str(doc.pop("_id", None) or "")
+        if not doc_id:
+            from app.utils import generate_id
+            doc_id = generate_id("doc")
+
+        data_json = json.dumps(doc)
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                f"INSERT INTO {self._table} (id, data) VALUES ($1, $2::jsonb) "
+                f"ON CONFLICT (id) DO NOTHING",
+                doc_id, data_json
+            )
+        return type("InsertResult", (), {"inserted_id": doc_id})()
+
+    async def update_one(self, filter_doc: dict, update_doc: dict, upsert: bool = False):
+        existing = await self.find_one(filter_doc)
+
+        set_fields = update_doc.get("$set", {})
+
+        if existing:
+            doc_id = existing["_id"]
+            merged = {k: v for k, v in existing.items() if k != "_id"}
+            merged.update(set_fields)
+            data_json = json.dumps(merged)
+            async with self._pool.acquire() as conn:
+                await conn.execute(
+                    f"UPDATE {self._table} SET data = $1::jsonb WHERE id = $2",
+                    data_json, doc_id
+                )
+        elif upsert:
+            # Determine the id from the filter or generate one
+            doc_id = str(filter_doc.get("_id", ""))
+            if not doc_id:
+                from app.utils import generate_id
+                doc_id = generate_id("doc")
+            data_json = json.dumps(set_fields)
+            async with self._pool.acquire() as conn:
+                await conn.execute(
+                    f"INSERT INTO {self._table} (id, data) VALUES ($1, $2::jsonb) "
+                    f"ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data",
+                    doc_id, data_json
+                )
+
+    async def delete_many(self, filter_doc: dict):
+        where, params = _build_where(filter_doc or {})
+        sql = f"DELETE FROM {self._table}"
+        if where:
+            sql += f" WHERE {where}"
+        async with self._pool.acquire() as conn:
+            await conn.execute(sql, *params)
+
+    async def delete_one(self, filter_doc: dict):
+        existing = await self.find_one(filter_doc)
+        if existing:
+            async with self._pool.acquire() as conn:
+                await conn.execute(
+                    f"DELETE FROM {self._table} WHERE id = $1", existing["_id"]
+                )
+
+
+class PGAggregateCursor:
+    """Handles simple $group + $sum aggregation pipelines."""
+
+    def __init__(self, pool, table: str, pipeline: list):
+        self._pool = pool
+        self._table = table
+        self._pipeline = pipeline
+
+    async def to_list(self, length=None) -> list:
+        for stage in self._pipeline:
             if "$group" in stage:
                 group = stage["$group"]
-                for k, v in group.items():
-                    if isinstance(v, dict) and "$sum" in v:
-                        val = v["$sum"]
-                        if isinstance(val, str) and val.startswith("$"):
-                            field_to_sum = val[1:]
-        
-        class SumCursor:
-            def __init__(self, client, table, field):
-                self.client = client
-                self.table = table
-                self.field = field
-            
-            async def to_list(self, length=None):
-                if not self.field: return []
-                resp = await self.client.table(self.table).select(self.field).execute()
-                total = sum(item.get(self.field, 0) or 0 for item in resp.data)
-                return [{"total": total}]
+                results = {}
+                for out_field, expr in group.items():
+                    if out_field == "_id":
+                        continue
+                    if isinstance(expr, dict) and "$sum" in expr:
+                        sum_field = expr["$sum"]
+                        if isinstance(sum_field, str) and sum_field.startswith("$"):
+                            col = sum_field[1:]  # strip leading $
+                            sql = (
+                                f"SELECT COALESCE(SUM((data->>'{col}')::numeric), 0) "
+                                f"FROM {self._table}"
+                            )
+                            async with self._pool.acquire() as conn:
+                                row = await conn.fetchrow(sql)
+                            results[out_field] = float(row[0])
+                if results:
+                    return [results]
+        return []
 
-        return SumCursor(self._client, self._table_name, field_to_sum)
 
-class SupabaseDBWrapper:
-    def __init__(self, client: AsyncPostgrestClient):
-        self._client = client
+# ---------------------------------------------------------------------------
+# Database wrapper
+# ---------------------------------------------------------------------------
 
-    def __getitem__(self, name):
-        return SupabaseCollectionWrapper(self._client, name)
-    
-    def __getattr__(self, name):
-        return SupabaseCollectionWrapper(self._client, name)
+# Tables that will be created on startup
+_TABLES = [
+    "prompt_runs",
+    "validation_requests",
+    "payment_events",
+    "config",
+    "agents",
+    "inference_logs",
+]
 
-async def init_db():
-    if settings.SUPABASE_URL and settings.SUPABASE_KEY:
-        try:
-            rest_url = f"{settings.SUPABASE_URL.rstrip('/')}/rest/v1"
-            headers = {
-                "apikey": settings.SUPABASE_KEY,
-                "Authorization": f"Bearer {settings.SUPABASE_KEY}"
-            }
-            client = AsyncPostgrestClient(rest_url, headers=headers)
-            print(f"Connected to Supabase Postgrest at {rest_url}")
-            return SupabaseDBWrapper(client)
-        except Exception as e:
-            print(f"Supabase connection failed: {e}. Falling back to mongomock.")
-    
-    import mongomock
-    from app.db_mock import AsyncMockDB
-    print("Supabase not configured. Falling back to AsyncMock (mongomock).")
-    client = mongomock.MongoClient()
-    mock_db = client["aurelius"]
-    return AsyncMockDB(mock_db)
+
+class PGDatabase:
+    """Top-level database object — attribute access returns PGCollection."""
+
+    def __init__(self, pool):
+        self._pool = pool
+
+    def __getattr__(self, name: str) -> PGCollection:
+        # Any attribute access returns a collection for that table name
+        return PGCollection(self._pool, name)
+
+    def __getitem__(self, name: str) -> PGCollection:
+        return PGCollection(self._pool, name)
+
+
+async def init_db() -> PGDatabase:
+    """Create the asyncpg connection pool and ensure all tables exist."""
+    db_url = settings.DATABASE_URL
+    if not db_url:
+        raise RuntimeError(
+            "DATABASE_URL environment variable is not set. "
+            "Please configure it to point to your PostgreSQL instance."
+        )
+
+    # asyncpg expects postgresql:// scheme
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
+
+    print(f"Connecting to PostgreSQL…")
+    pool = await asyncpg.create_pool(
+        dsn=db_url,
+        min_size=2,
+        max_size=10,
+        command_timeout=30,
+        ssl="require",
+    )
+
+    # Ensure all tables exist
+    for table in _TABLES:
+        await _ensure_table(pool, table)
+
+    print("PostgreSQL connection pool established and schema verified.")
+    return PGDatabase(pool)
+
+
+# ---------------------------------------------------------------------------
+# Proxy (keeps the same import interface as before)
+# ---------------------------------------------------------------------------
 
 class DBProxy:
     def __init__(self):
-        self._db = None
+        self._db: Optional["PGDatabase"] = None
 
-    def set_db(self, db):
+    def set_db(self, db: PGDatabase):
         self._db = db
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str):
         if self._db is None:
             raise RuntimeError("Database not initialized. Call init_db() first.")
         return getattr(self._db, name)
 
-    def __getitem__(self, name):
+    def __getitem__(self, name: str):
         if self._db is None:
             raise RuntimeError("Database not initialized. Call init_db() first.")
         return self._db[name]
+
 
 db = DBProxy()

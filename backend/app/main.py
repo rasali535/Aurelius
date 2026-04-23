@@ -54,7 +54,7 @@ async def root():
 
 @app.get("/health")
 async def health():
-    return {"status": "alive", "database": "initialized" if db._db else "pending"}
+    return {"status": "alive", "database": "postgresql", "initialized": db._db is not None}
 
 @app.on_event("startup")
 async def startup_event():
