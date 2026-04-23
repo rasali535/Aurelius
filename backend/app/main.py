@@ -16,36 +16,36 @@ logger = logging.getLogger("aurelius")
 logger.info(">>> AURELIUS BACKEND STARTING <<<")
 
 # Check Port
-PORT = int(os.getenv("PORT", 8000))
+PORT = int(os.getenv("PORT", 8080))
 logger.info(f"Target Port: {PORT}")
 
 # --- Initialize FastAPI ---
 app = FastAPI(title="Aurelius Backend")
 
-# --- Global permissive CORS ---
+# --- Explicit CORS for Production (User Request) ---
+FRONTEND_ORIGIN = "https://lightseagreen-bear-113896.hostingersite.com"
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
+    allow_origins=[FRONTEND_ORIGIN, "http://localhost:5173"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"]
 )
 
 @app.middleware("http")
 async def add_cors_headers(request: Request, call_next):
     try:
         response = await call_next(request)
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS, PUT, DELETE"
-        response.headers["Access-Control-Allow-Headers"] = "*"
+        # Only add manual headers if not already present
+        if "Access-Control-Allow-Origin" not in response.headers:
+            response.headers["Access-Control-Allow-Origin"] = FRONTEND_ORIGIN
         return response
     except Exception as e:
         logger.error(f"Middleware Error: {e}")
         return JSONResponse(
             status_code=500,
             content={"detail": "Internal Server Error", "error": str(e)},
-            headers={"Access-Control-Allow-Origin": "*"}
+            headers={"Access-Control-Allow-Origin": FRONTEND_ORIGIN}
         )
 
 # --- Global Exception Handler ---
@@ -56,7 +56,7 @@ async def global_exception_handler(request: Request, exc: Exception):
         status_code=500,
         content={"detail": "Internal Server Error", "error": str(exc)},
         headers={
-            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Origin": FRONTEND_ORIGIN,
             "Access-Control-Allow-Methods": "*",
             "Access-Control-Allow-Headers": "*"
         }
@@ -67,6 +67,7 @@ try:
     from app.db import init_db, db
     from app.routes import orchestrator, dashboard, commerce, market, router
     
+    # Routes at /api
     app.include_router(orchestrator.router, prefix="/api")
     app.include_router(dashboard.router, prefix="/api")
     app.include_router(commerce.router, prefix="/api")
@@ -76,10 +77,12 @@ except Exception as e:
     logger.error(f"Router Import Error: {e}")
 
 @app.get("/")
+@app.get("/api")
 async def root():
     return {"message": "Aurelius AI Lead Agent API", "status": "active"}
 
 @app.get("/health")
+@app.get("/api/health")
 async def health():
     # Always return 200 to keep Railway happy
     status = "alive" if db._db else "initializing"
@@ -88,7 +91,6 @@ async def health():
 @app.on_event("startup")
 async def startup_event():
     logger.info("FastAPI startup event triggered")
-    # Start DB initialization in background to not block port binding
     asyncio.create_task(deferred_startup())
 
 async def deferred_startup():
