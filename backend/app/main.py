@@ -5,13 +5,14 @@ import sys
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-# Setup logging
+# Setup logging to be extremely visible in Railway
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     stream=sys.stdout
 )
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("aurelius")
+logger.info("Aurelius process starting up...")
 
 from app.db import init_db, db
 from app.routes import orchestrator, dashboard, commerce, market, router
@@ -19,24 +20,31 @@ from app.config import settings
 
 app = FastAPI(title="Aurelius Backend")
 
-# --- CORS Configuration ---
-_dev_origins = ["http://localhost:5173", "http://localhost:3000"]
-_static_origins = [
-    "https://lightseagreen-bear-113896.hostingersite.com",
-    "https://aurelius-production-2ec3.up.railway.app",
-]
-_configured_origins = [settings.FRONTEND_ORIGIN] if settings.FRONTEND_ORIGIN else []
-
-_allow_origins = list(set(_configured_origins + _dev_origins + _static_origins))
-logger.info("CORS allow_origins: %s", _allow_origins)
-
+# --- Extremely Permissive CORS for Production Stability ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_allow_origins,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False, # Must be False for wildcard origins
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# --- Global Exception Handler to ensure CORS headers even on errors ---
+from fastapi import Request
+from fastapi.responses import JSONResponse
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Global handler caught error: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal Server Error", "error": str(exc)},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "*",
+            "Access-Control-Allow-Headers": "*"
+        }
+    )
 
 # --- Routes ---
 app.include_router(orchestrator.router, prefix="/api")
@@ -64,11 +72,12 @@ async def health():
 async def startup_event():
     # Immediate start to satisfy Railway health check
     # Defer database initialization and seeding to a background task
+    logger.info("Scheduling deferred startup task...")
     asyncio.create_task(deferred_startup())
 
 async def deferred_startup():
     try:
-        logger.info("Starting Aurelius Backend deferred initialization...")
+        logger.info("Running deferred initialization...")
         db_instance = await init_db()
         db.set_db(db_instance)
         
@@ -78,8 +87,9 @@ async def deferred_startup():
         
         logger.info("Aurelius Backend initialization complete.")
     except Exception as e:
-        logger.error(f"CRITICAL: Backend initialization failed: {e}")
+        logger.error(f"CRITICAL: Backend initialization failed: {e}", exc_info=True)
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)

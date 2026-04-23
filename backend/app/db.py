@@ -347,6 +347,23 @@ async def init_db() -> PGDatabase:
     print("PostgreSQL connection pool established and schema verified.", flush=True)
     return PGDatabase(pool)
 
+async def seed_initial_data(db_instance):
+    """Seeds the database with initial agents and config if they don't exist."""
+    print("Seeding initial data...", flush=True)
+    
+    # 1. Seed Validators
+    from app.services.validator_service import seed_validators
+    await seed_validators(db_instance)
+    
+    # 2. Seed Requester Wallet (so it's not 'pending' in the UI)
+    from app.services.orchestrator_service import get_or_create_requester_wallet
+    try:
+        await get_or_create_requester_wallet(db_instance)
+        print("Requester wallet verified/created.", flush=True)
+    except Exception as e:
+        print(f"Warning: Failed to seed requester wallet: {e}", flush=True)
+
+    print("Seeding complete.", flush=True)
 
 # ---------------------------------------------------------------------------
 # Proxy (keeps the same import interface as before)
