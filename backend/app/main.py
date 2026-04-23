@@ -18,7 +18,12 @@ app = FastAPI(title="Aurelius API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://lightseagreen-bear-113896.hostingersite.com",
+        "http://lightseagreen-bear-113896.hostingersite.com",
+        "http://localhost:5173",
+        "http://localhost:3000"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
