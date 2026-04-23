@@ -325,7 +325,7 @@ async def init_db() -> PGDatabase:
     if db_url.startswith("postgres://"):
         db_url = db_url.replace("postgres://", "postgresql://", 1)
 
-    print(f"Connecting to PostgreSQL at {db_url.split('@')[-1]}...") # Log host only for safety
+    print(f"Connecting to PostgreSQL at {db_url.split('@')[-1]}...", flush=True) # Log host only for safety
     try:
         pool = await asyncpg.create_pool(
             dsn=db_url,
@@ -337,14 +337,14 @@ async def init_db() -> PGDatabase:
             statement_cache_size=0,
         )
     except Exception as e:
-        print(f"FAILED to connect to PostgreSQL: {e}")
+        print(f"FAILED to connect to PostgreSQL: {e}", flush=True)
         raise
 
     # Ensure all tables exist
     for table in _TABLES:
         await _ensure_table(pool, table)
 
-    print("PostgreSQL connection pool established and schema verified.")
+    print("PostgreSQL connection pool established and schema verified.", flush=True)
     return PGDatabase(pool)
 
 
