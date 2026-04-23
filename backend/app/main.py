@@ -2,9 +2,8 @@ import logging
 import asyncio
 import os
 import sys
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import Request
 from fastapi.responses import JSONResponse
 
 # Immediate stdout logging
@@ -16,20 +15,35 @@ logging.basicConfig(
 logger = logging.getLogger("aurelius")
 logger.info(">>> AURELIUS BACKEND STARTING <<<")
 
-from app.db import init_db, db
-from app.routes import orchestrator, dashboard, commerce, market, router
-from app.config import settings
-
+# --- Initialize FastAPI ---
 app = FastAPI(title="Aurelius Backend")
 
-# --- CORS ---
+# --- Explicit CORS for Production ---
+# We use both the middleware and a manual header just to be safe
+FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "https://lightseagreen-bear-113896.hostingersite.com")
+ALLOWED_ORIGINS = [
+    FRONTEND_ORIGIN,
+    "https://lightseagreen-bear-113896.hostingersite.com",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173"
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"], # Temporarily keep wildcard to rule out matching issues
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"]
 )
+
+@app.middleware("http")
+async def add_cors_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS, PUT, DELETE"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    return response
 
 # --- Global Exception Handler ---
 @app.exception_handler(Exception)
@@ -45,6 +59,10 @@ async def global_exception_handler(request: Request, exc: Exception):
         }
     )
 
+# --- Deferred Imports to prevent startup crashes ---
+from app.db import init_db, db
+from app.routes import orchestrator, dashboard, commerce, market, router
+
 # --- Routes ---
 app.include_router(orchestrator.router, prefix="/api")
 app.include_router(dashboard.router, prefix="/api")
@@ -54,18 +72,13 @@ app.include_router(router.router, prefix="/api")
 
 @app.get("/")
 async def root():
-    logger.info("Root endpoint hit")
     return {"message": "Aurelius AI Lead Agent API", "status": "active"}
 
 @app.get("/health")
 async def health():
     if db._db is None:
-        return {
-            "status": "initializing",
-            "database": "postgresql",
-            "initialized": False
-        }
-    return {"status": "alive", "database": "postgresql", "initialized": True}
+        return {"status": "initializing", "initialized": False}
+    return {"status": "alive", "initialized": True}
 
 @app.on_event("startup")
 async def startup_event():
@@ -88,5 +101,4 @@ async def deferred_startup():
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 8000))
-    logger.info(f"Starting uvicorn on port {port}")
     uvicorn.run(app, host="0.0.0.0", port=port)
