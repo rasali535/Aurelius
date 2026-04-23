@@ -70,9 +70,9 @@ try:
     # Routes at /api
     app.include_router(orchestrator.router, prefix="/api")
     app.include_router(dashboard.router, prefix="/api")
-    app.include_router(commerce.router, prefix="/api")
+    app.include_router(commerce.router, prefix="/api/commerce")
     app.include_router(market.router, prefix="/api")
-    app.include_router(router.router, prefix="/api")
+    app.include_router(router.router, prefix="/api/router")
 except Exception as e:
     logger.error(f"Router Import Error: {e}")
 
