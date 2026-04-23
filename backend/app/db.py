@@ -319,14 +319,19 @@ async def init_db() -> PGDatabase:
     if db_url.startswith("postgres://"):
         db_url = db_url.replace("postgres://", "postgresql://", 1)
 
-    print(f"Connecting to PostgreSQL…")
-    pool = await asyncpg.create_pool(
-        dsn=db_url,
-        min_size=2,
-        max_size=10,
-        command_timeout=30,
-        ssl="require",
-    )
+    print(f"Connecting to PostgreSQL at {db_url.split('@')[-1]}...") # Log host only for safety
+    try:
+        pool = await asyncpg.create_pool(
+            dsn=db_url,
+            min_size=1,
+            max_size=5, # Reduce to be safer for free-tier DBs
+            command_timeout=60,
+            ssl=True,
+            timeout=30, # Connection timeout
+        )
+    except Exception as e:
+        print(f"FAILED to connect to PostgreSQL: {e}")
+        raise
 
     # Ensure all tables exist
     for table in _TABLES:

@@ -9,7 +9,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 from app.db import init_db, db
-from app.routes import orchestrator, dashboard, commerce
+from app.routes import orchestrator, dashboard, commerce, market, router
 from app.config import settings
 
 app = FastAPI(title="Aurelius Backend")
@@ -36,9 +36,10 @@ else:
 _allow_origins = list(set(_configured_origins + _dev_origins + _static_origins))
 logger.info("CORS allow_origins: %s", _allow_origins)
 
+# Permissive CORS for production stability
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_allow_origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -47,6 +48,8 @@ app.add_middleware(
 app.include_router(orchestrator.router, prefix="/api")
 app.include_router(dashboard.router, prefix="/api")
 app.include_router(commerce.router, prefix="/api")
+app.include_router(market.router, prefix="/api")
+app.include_router(router.router, prefix="/api")
 
 @app.get("/")
 async def root():
