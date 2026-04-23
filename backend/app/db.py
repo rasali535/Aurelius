@@ -11,6 +11,8 @@ Each logical "collection" maps to a PostgreSQL table with the schema:
 
 import json
 from typing import Optional
+import os
+import asyncio
 import asyncpg
 from app.config import settings
 
@@ -308,7 +310,7 @@ class PGDatabase:
 
 async def init_db() -> PGDatabase:
     """Create the asyncpg connection pool and ensure all tables exist."""
-    db_url = settings.DATABASE_URL
+    db_url = os.getenv("DATABASE_URL", "").strip()
     if not db_url:
         raise RuntimeError(
             "DATABASE_URL environment variable is not set. "
