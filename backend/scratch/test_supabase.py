@@ -20,7 +20,7 @@ async def test_db():
     
     # Test find
     print("Testing find...")
-    agent = await db.agents.find_one({"id": inserted["id"]})
+    agent = await db.agents.find_one({"_id": inserted.inserted_id})
     print(f"Found: {agent}")
     
     # Test count

@@ -107,7 +107,11 @@ def _build_where(filter_doc: dict):
 
 def _row_to_doc(row) -> dict:
     """Convert a DB row (id, data) into a document dict with _id."""
-    doc = dict(row["data"]) if row["data"] else {}
+    data = row["data"]
+    if isinstance(data, str):
+        doc = json.loads(data)
+    else:
+        doc = dict(data) if data else {}
     doc["_id"] = row["id"]
     return doc
 
@@ -176,7 +180,7 @@ class PGCollection:
             row = await conn.fetchrow(sql, *params)
         return row[0]
 
-    async def aggregate(self, pipeline: list) -> "PGAggregateCursor":
+    def aggregate(self, pipeline: list) -> "PGAggregateCursor":
         """
         Supports a single $group stage with $sum on a numeric JSONB field.
         Returns a cursor-like object with .to_list().
@@ -328,8 +332,9 @@ async def init_db() -> PGDatabase:
             min_size=1,
             max_size=5, # Reduce to be safer for free-tier DBs
             command_timeout=60,
-            ssl=True,
+            ssl='require',
             timeout=30, # Connection timeout
+            statement_cache_size=0,
         )
     except Exception as e:
         print(f"FAILED to connect to PostgreSQL: {e}")
