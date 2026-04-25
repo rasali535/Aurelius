@@ -322,6 +322,10 @@ class CircleService:
         if not src or not dst:
             raise ValueError(f"Unsupported blockchain for bridging: {source_blockchain} -> {destination_blockchain}")
 
+        source_wallet_id = await self.get_wallet_id_for_chain(wallet_id, source_blockchain)
+        if not source_wallet_id:
+            raise ValueError(f"Could not find wallet for source blockchain: {source_blockchain}")
+
         # Amount in 6 decimals (standard for USDC)
         amount_raw = str(int(amount * 1_000_000))
         
@@ -330,7 +334,7 @@ class CircleService:
         # Step 1: Approve
         print("Step 1/4: Approving USDC...")
         approve_tx = await self.contract_execution(
-            wallet_id=wallet_id,
+            wallet_id=source_wallet_id,
             contract_address=src["usdc"],
             abi_signature="approve(address,uint256)",
             abi_parameters=[src["token_messenger"], amount_raw]
@@ -343,7 +347,7 @@ class CircleService:
         recipient_bytes32 = "0x" + destination_address.lower().replace("0x", "").zfill(64)
         
         burn_tx = await self.contract_execution(
-            wallet_id=wallet_id,
+            wallet_id=source_wallet_id,
             contract_address=src["token_messenger"],
             abi_signature="depositForBurn(uint256,uint32,bytes32,address)",
             abi_parameters=[amount_raw, str(dst["domain"]), recipient_bytes32, src["usdc"]]

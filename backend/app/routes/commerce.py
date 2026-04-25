@@ -156,6 +156,31 @@ async def execute_bridge(payload: BridgeRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+class GatewayTransferRequest(BaseModel):
+    destination_blockchain: str
+    destination_address: str
+    amount: float
+
+@router.post("/gateway/transfer")
+async def execute_gateway_transfer(payload: GatewayTransferRequest):
+    """
+    Executes a Gateway transfer (nanopayment).
+    """
+    try:
+        requester = await db.config.find_one({"_id": "requester_wallet"})
+        if not requester:
+            raise Exception("No requester wallet configured.")
+            
+        tx_hash = await circle_service.gateway_transfer(
+            wallet_id=requester["wallet_id"],
+            destination_blockchain=payload.destination_blockchain,
+            destination_address=payload.destination_address,
+            amount=payload.amount
+        )
+        return {"status": "success", "tx_hash": tx_hash}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 class AgentRegisterRequest(BaseModel):
     metadata_uri: str
 
