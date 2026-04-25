@@ -58,11 +58,17 @@ class CircleService:
             return settings.CIRCLE_ENTITY_SECRET_CIPHERTEXT
             
         # Normalize the PEM content: strip and replace literal '\n' with actual newlines
+        # Pre-processing diagnostic
+        orig_len = len(self.public_key_pem)
         pem_content = self.public_key_pem.strip().replace("\\n", "\n")
         
+        if len(pem_content) < 50:
+            error_msg = f"ENCRYPTION_FAILURE: Public key is too short ({len(pem_content)} chars). It should be a long PEM string. Original length: {orig_len}"
+            print(f"CRITICAL: {error_msg}")
+            raise Exception(error_msg)
+
         # Ensure standard PEM headers are present
         if "-----BEGIN PUBLIC KEY-----" not in pem_content:
-            # Check if it's already base64-ish or missing headers
             header = "-----BEGIN PUBLIC KEY-----\n"
             footer = "\n-----END PUBLIC KEY-----"
             pem_content = f"{header}{pem_content}{footer}"
@@ -71,7 +77,7 @@ class CircleService:
             # Cryptography's load_pem_public_key expects the full PEM block
             pub_key = serialization.load_pem_public_key(pem_content.encode())
             ciphertext = pub_key.encrypt(
-                bytes.fromhex(self.entity_secret),
+                bytes.fromhex(self.entity_secret.replace("0x", "")),
                 padding.OAEP(
                     mgf=padding.MGF1(algorithm=hashes.SHA256()),
                     algorithm=hashes.SHA256(),
@@ -81,8 +87,7 @@ class CircleService:
             return base64.b64encode(ciphertext).decode()
         except Exception as e:
             # Log the error and raise it so the user sees the REAL reason for failure
-            # instead of a confusing "reusing ciphertext" error from the fallback
-            error_msg = f"ENCRYPTION_FAILURE: {e}. Key length: {len(pem_content)}"
+            error_msg = f"ENCRYPTION_FAILURE: {e}. Processed length: {len(pem_content)}"
             print(f"CRITICAL: {error_msg}")
             raise Exception(error_msg)
 
