@@ -104,7 +104,17 @@ class GeminiService:
         ]
 
     async def chat_with_tools(self, prompt: str, chat_history=None):
-        """Uses Google Direct if available, else falls back to AI/ML API."""
+        """
+        Uses AI/ML API (OpenAI-compatible) as the primary provider for tool-enabled chat.
+        Falls back to Google Direct if AI/ML API is unavailable.
+        """
+        if self.aiml_api_key:
+            try:
+                # Move AI/ML logic to a private helper or keep it here
+                return await self._call_aiml_chat(prompt, chat_history)
+            except Exception as e:
+                logger.warning(f"AI/ML API tool call failed, attempting Google fallback: {e}")
+
         if self.google_api_key:
             try:
                 async with httpx.AsyncClient(timeout=30.0) as client:
@@ -115,10 +125,12 @@ class GeminiService:
                     if resp.status_code == 200:
                         return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
             except Exception as e:
-                logger.warning(f"Google direct call failed: {e}")
+                logger.warning(f"Google direct fallback failed: {e}")
 
-        if not self.aiml_api_key:
-            return await self._fallback(prompt)
+        return await self._fallback(prompt)
+
+    async def _call_aiml_chat(self, prompt: str, chat_history=None):
+        """Helper to call AI/ML API with full tool definitions."""
 
         # AI/ML API (OpenAI-compatible) logic
         tools = [
