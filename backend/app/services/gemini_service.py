@@ -330,8 +330,8 @@ class GeminiService:
             base64_image = base64_image.split(",")[1]
 
         try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={self.google_api_key}"
+            async with httpx.AsyncClient(timeout=90.0) as client:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={self.google_api_key}"
                 payload = {
                     "contents": [{
                         "parts": [
@@ -347,10 +347,17 @@ class GeminiService:
                 }
                 resp = await client.post(url, json=payload)
                 if resp.status_code == 200:
-                    return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+                    try:
+                        return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+                    except (KeyError, IndexError) as e:
+                        logger.error(f"Gemini Pro Response Parsing Error: {e}. Body: {resp.text}")
+                        return "Error parsing model response."
                 else:
-                    logger.error(f"Gemini Vision failed: {resp.text}")
-                    return "Failed to analyze document."
+                    error_text = resp.text
+                    logger.error(f"Gemini Pro Vision failed ({resp.status_code}): {error_text}")
+                    if "API_KEY_INVALID" in error_text:
+                        return "Error: Invalid Google API Key."
+                    return f"Failed to analyze document (Status {resp.status_code})."
         except Exception as e:
             logger.error(f"Vision error: {e}")
             return str(e)
