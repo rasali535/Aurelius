@@ -358,14 +358,17 @@ class CircleService:
         print(f"--- Starting CCTP Bridge: {amount} USDC from {source_blockchain} to {destination_blockchain} ---")
         
         # Step 1: Approve
-        print("Step 1/4: Approving USDC...")
-        approve_tx = await self.contract_execution(
+        print(f"Step 1/4: Approving {amount} USDC for TokenMessenger...")
+        await self.contract_execution(
             wallet_id=source_wallet_id,
             contract_address=src["usdc"],
             abi_signature="approve(address,uint256)",
-            abi_parameters=[src["token_messenger"], amount_raw]
+            abi_parameters=[src["token_messenger"], str(amount_raw)]
         )
-        print(f"Approval successful: {approve_tx}")
+        
+        # Add a small delay to ensure allowance is indexed on-chain
+        print("  Waiting 10s for allowance propagation...")
+        await asyncio.sleep(10)
 
         # Step 2: DepositForBurn
         print("Step 2/4: Depositing for burn...")
@@ -376,7 +379,7 @@ class CircleService:
             wallet_id=source_wallet_id,
             contract_address=src["token_messenger"],
             abi_signature="depositForBurn(uint256,uint32,bytes32,address)",
-            abi_parameters=[amount_raw, str(dst["domain"]), recipient_bytes32, src["usdc"]]
+            abi_parameters=[str(amount_raw), str(dst["domain"]), recipient_bytes32, src["usdc"]]
         )
         print(f"Burn successful: {burn_tx}")
 
