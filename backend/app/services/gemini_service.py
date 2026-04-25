@@ -325,7 +325,10 @@ class GeminiService:
         """Uses Gemini Vision to analyze commerce documents."""
         if not self.google_api_key:
             return "Vision capability requires GOOGLE_API_KEY."
-            
+
+        if "," in base64_image:
+            base64_image = base64_image.split(",")[1]
+
         try:
             async with httpx.AsyncClient(timeout=60.0) as client:
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={self.google_api_key}"

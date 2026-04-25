@@ -294,9 +294,14 @@ class CircleService:
                 resp = await client.get(url, params=params)
                 if resp.status_code == 200:
                     data = resp.json()
-                    # CCTP V2 Iris API returns a single object with message and attestation
-                    if data.get("status") == "complete":
-                        return data.get("message"), data.get("attestation")
+                    # CCTP V2 Iris API returns an array of messages
+                    messages = data.get("messages", [])
+                    if messages and messages[0].get("status") == "complete":
+                        return messages[0].get("message"), messages[0].get("attestation")
+                    
+                    # Alternative check: top-level status
+                    if data.get("status") == "complete" and messages:
+                         return messages[0].get("message"), messages[0].get("attestation")
                 elif resp.status_code != 404:
                     print(f"Iris API Error: {resp.status_code} - {resp.text}")
                 
