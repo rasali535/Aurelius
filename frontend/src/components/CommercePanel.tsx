@@ -28,7 +28,7 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
       const base64 = visionImage.split(',')[1];
       const res = await api.post("/commerce/multimodal/settle", { image: base64 });
       
-      updateLog(taskId, "success", `VISION_PROCESSED: ${res.data.message}`);
+      updateLog(taskId, "success", `VISION_PROCESSED: ${res.data.message}`, res.data.tx_hash);
     } catch (err: any) {
       updateLog(taskId, "error", `VISION_FAILED: ${err.response?.data?.detail || "ERROR"}`);
     }
@@ -80,7 +80,7 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
         amount: amount,
       });
       
-      updateLog(taskId, "success", `SWAP_COMPLETE: +${res.data.received_amount.toFixed(4)} ${toToken}`);
+      updateLog(taskId, "success", `SWAP_COMPLETE: +${res.data.received_amount.toFixed(4)} ${toToken}`, res.data.tx_hash);
     } catch (err: any) {
       updateLog(taskId, "error", `FAILED: ${err.response?.data?.detail || "SWAP_REJECTED"}`);
     }
@@ -99,7 +99,7 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
         destination_address: targetAddress,
       });
       
-      updateLog(localId, "success", `BRIDGE_STARTED: Task ID ${res.data.task_id}. Processing in background...`);
+      updateLog(localId, "success", `BRIDGE_STARTED: Task ID ${res.data.task_id}. Processing in background...`, res.data.destTx);
     } catch (err: any) {
       updateLog(localId, "error", `BRIDGE_FAILED: ${err.response?.data?.detail || "CCTP_ERROR"}`);
     }
@@ -479,12 +479,13 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
               <span className="log-id">[{task.id}]</span>
               <span className="log-msg">
                 {task.msg}
-                {task.txHash && (
+                {task.txHash && /^(0x)?[a-fA-F0-9]{40,66}$/.test(task.txHash) && (
                   <a 
-                    href={`https://testnet.arcscan.app/tx/${task.txHash}`} 
+                    href={`https://testnet.arcscan.app/${task.txHash.length > 42 ? 'tx' : 'address'}/${task.txHash.startsWith('0x') ? task.txHash : '0x' + task.txHash}`} 
                     target="_blank" 
-                    rel="noreferrer"
-                    style={{ color: 'var(--primary)', marginLeft: '8px', textDecoration: 'underline', opacity: 0.8 }}
+                    rel="noreferrer" 
+                    className="view-tx-btn"
+                    style={{ marginLeft: '10px', fontSize: '0.6rem', color: 'var(--primary)', textDecoration: 'underline' }}
                   >
                     VIEW_TX
                   </a>
