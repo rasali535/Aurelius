@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { api } from "../services/api";
 import type { DashboardSummary } from "../types";
 
@@ -44,6 +44,12 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
   const [destChain, setDestChain] = useState("ARC-TESTNET");
   const [bridgeAmount, setBridgeAmount] = useState("5.00");
   const [destAddress, setDestAddress] = useState(summary?.wallet_address || "");
+  
+  useEffect(() => {
+    if (summary?.wallet_address && !destAddress) {
+      setDestAddress(summary.wallet_address);
+    }
+  }, [summary]);
 
   // Agent/Job State
   const [agentMetadata, setAgentMetadata] = useState("ipfs://aurelius-agent-v1");
@@ -64,13 +70,14 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
 
   const handleSwap = async () => {
     const taskId = `SWAP_${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
-    addLog(taskId, "pending", `INITIATING_DEX_SWAP: ${swapAmount} ${fromToken} → ${toToken}`);
+    const amount = parseFloat(swapAmount) || 0;
+    addLog(taskId, "pending", `INITIATING_DEX_SWAP: ${amount} ${fromToken} → ${toToken}`);
     
     try {
       const res = await api.post("/commerce/swap", {
         from_token: fromToken,
         to_token: toToken,
-        amount: parseFloat(swapAmount),
+        amount: amount,
       });
       
       updateLog(taskId, "success", `SWAP_COMPLETE: +${res.data.received_amount.toFixed(4)} ${toToken}`);
@@ -81,14 +88,15 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
 
   const handleBridge = async () => {
     const localId = `BRIDGE_${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    const targetAddress = destAddress || summary?.wallet_address || "0x0000000000000000000000000000000000000000";
     addLog(localId, "pending", `INITIATING_CCTP_BRIDGE: ${bridgeAmount} USDC to ${destChain}`);
     
     try {
       const res = await api.post("/commerce/bridge", {
-        amount: parseFloat(bridgeAmount),
+        amount: parseFloat(bridgeAmount) || 0,
         source_blockchain: sourceChain,
         destination_blockchain: destChain,
-        destination_address: destAddress || summary?.wallet_address,
+        destination_address: targetAddress,
       });
       
       updateLog(localId, "success", `BRIDGE_STARTED: Task ID ${res.data.task_id}. Processing in background...`);
@@ -125,12 +133,13 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
 
   const handleGatewayTransfer = async () => {
     const taskId = `PAY_${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
-    addLog(taskId, "pending", `EXECUTING_NANOPAYMENT: ${gatewayAmount} USDC`);
+    const targetAddress = summary?.wallet_address || "0x0000000000000000000000000000000000000000";
+    addLog(taskId, "pending", `EXECUTING_NANOPAYMENT: ${gatewayAmount} USDC to ${targetAddress}`);
     try {
       const res = await api.post("/commerce/gateway/transfer", {
         destination_blockchain: "ETH-SEPOLIA",
-        destination_address: summary?.wallet_address,
-        amount: parseFloat(gatewayAmount)
+        destination_address: targetAddress,
+        amount: parseFloat(gatewayAmount) || 0
       });
       updateLog(taskId, "success", `NANOPAYMENT_COMPLETE!`, res.data.tx_hash);
     } catch (err: any) {
@@ -167,25 +176,25 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
       <div className="panel-tabs">
         <button 
           className={`tab-btn ${activeTab === 'swap' ? 'active' : ''}`} 
-          onClick={() => { setActiveTab('swap'); setStatus({ type: 'none', msg: '' }); }}
+          onClick={() => setActiveTab('swap')}
         >
           SWAP_ASSETS
         </button>
         <button 
           className={`tab-btn ${activeTab === 'bridge' ? 'active' : ''}`} 
-          onClick={() => { setActiveTab('bridge'); setStatus({ type: 'none', msg: '' }); }}
+          onClick={() => setActiveTab('bridge')}
         >
           CROSS_CHAIN_BRIDGE
         </button>
         <button 
           className={`tab-btn ${activeTab === 'agents' ? 'active' : ''}`} 
-          onClick={() => { setActiveTab('agents'); setStatus({ type: 'none', msg: '' }); }}
+          onClick={() => setActiveTab('agents')}
         >
           AGENTS_&_JOBS
         </button>
         <button 
           className={`tab-btn ${activeTab === 'vision' ? 'active' : ''}`} 
-          onClick={() => { setActiveTab('vision'); setStatus({ type: 'none', msg: '' }); }}
+          onClick={() => setActiveTab('vision')}
         >
           VISION_CHECKOUT
         </button>
