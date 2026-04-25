@@ -23,10 +23,16 @@ logger.info(f"Target Port: {PORT}")
 app = FastAPI(title="Aurelius Backend")
 
 # --- Explicit CORS for Production (User Request) ---
-FRONTEND_ORIGIN = "https://lightseagreen-bear-113896.hostingersite.com"
+ALLOWED_ORIGINS = [
+    "https://lightseagreen-bear-113896.hostingersite.com",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173"
+]
+FRONTEND_ORIGIN = ALLOWED_ORIGINS[0]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_ORIGIN, "http://localhost:5173"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -35,10 +41,17 @@ app.add_middleware(
 @app.middleware("http")
 async def add_cors_headers(request: Request, call_next):
     try:
+        origin = request.headers.get("origin")
         response = await call_next(request)
-        # Only add manual headers if not already present
-        if "Access-Control-Allow-Origin" not in response.headers:
-            response.headers["Access-Control-Allow-Origin"] = FRONTEND_ORIGIN
+        
+        # Determine allowed origin
+        target_origin = origin if origin in ALLOWED_ORIGINS else ALLOWED_ORIGINS[0]
+        
+        response.headers["Access-Control-Allow-Origin"] = target_origin
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, Accept, Origin, X-Requested-With"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        
         return response
     except Exception as e:
         logger.error(f"Middleware Error: {e}")
