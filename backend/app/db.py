@@ -253,12 +253,14 @@ class PGAggregateCursor:
                             col = sum_field[1:]
                             
                             # Build WHERE clause from match_filter
-                            where_clause = ""
+                            where_stmt = ""
                             params = []
                             if match_filter:
                                 where_clause, params = _build_where(match_filter)
+                                if where_clause:
+                                    where_stmt = f" WHERE {where_clause}"
                             
-                            sql = f"SELECT COALESCE(SUM((data->>'{col}')::numeric), 0) FROM {self._table} {where_clause}"
+                            sql = f"SELECT COALESCE(SUM((data->>'{col}')::numeric), 0) FROM {self._table}{where_stmt}"
                             
                             async with self._pool.acquire() as conn:
                                 row = await conn.fetchrow(sql, *params)
