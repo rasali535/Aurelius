@@ -220,7 +220,7 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
         <div className="protocol-badge">{activeTab === 'swap' ? 'ARC_DEX_v2' : 'CIRCLE_CCTP_v2'}</div>
       </div>
 
-      {activeTab === 'swap' ? (
+      {activeTab === 'swap' && (
         <div className="swap-container">
           <div className="swap-box">
             <div className="swap-box-header">
@@ -280,7 +280,9 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
             {loading ? "ROUTING_TRANSACTION..." : "EXECUTE_SWAP"}
           </button>
         </div>
-      ) : activeTab === 'bridge' ? (
+      )}
+
+      {activeTab === 'bridge' && (
         <div className="bridge-container">
           <div className="swap-box">
             <div className="swap-box-header">
@@ -342,7 +344,9 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
             {loading ? "BRIDGING_ASSETS..." : "START_BRIDGE_TRANSFER"}
           </button>
         </div>
-      ) : activeTab === 'agents' ? (
+      )}
+
+      {activeTab === 'agents' && (
         <div className="agents-container" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {/* Agent Identity Section */}
           <div className="swap-box">
@@ -425,7 +429,9 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
             {loading ? "PROCESSING_BULK_TX..." : "🚀 GENERATE_50_TX_PROOF (HACKATHON_DEMO)"}
           </button>
         </div>
-      ) : (
+      )}
+
+      {activeTab === 'vision' && (
         <div className="vision-container" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
           <div className="swap-box">
             <div className="swap-box-header">
