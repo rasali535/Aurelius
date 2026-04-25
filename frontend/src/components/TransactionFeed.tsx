@@ -1,13 +1,17 @@
 import { useEffect, useState } from "react";
 import type { DashboardSummary, Transaction } from "../types";
 
+interface ExtendedTransaction extends Transaction {
+  is_simulated?: boolean;
+}
+
 type Props = {
   summary: DashboardSummary | null;
   isLive?: boolean;
 };
 
 export default function TransactionFeed({ summary, isLive }: Props) {
-  const [localTxs, setLocalTxs] = useState<Transaction[]>([]);
+  const [localTxs, setLocalTxs] = useState<ExtendedTransaction[]>([]);
 
   useEffect(() => {
     if (summary?.latest_transactions) {
@@ -30,7 +34,8 @@ export default function TransactionFeed({ summary, isLive }: Props) {
         status: "settled",
         tx_hash: `0x${Array.from({length: 8}, () => Math.random().toString(16).substr(2, 8)).join('')}`,
         settled_at: new Date().toISOString(),
-        x402_status: Math.random() > 0.5 ? "paid" : "settled"
+        x402_status: Math.random() > 0.5 ? "paid" : "settled",
+        is_simulated: true
       };
       setLocalTxs(prev => [newTx, ...prev].slice(0, 20));
     }, 4500);
@@ -58,20 +63,24 @@ export default function TransactionFeed({ summary, isLive }: Props) {
               <div className="tx-main">
                 <div className="tx-id-row">
                   <span className="tx-id-token">{tx.id || "SETTLEMENT"}</span>
-                  <span className={`tx-tag ${tx.x402_status === "paid" ? "tag-x402" : "tag-std"}`}>
-                    {tx.x402_status === "paid" ? "X402_PROOF" : "BASE_AUTH"}
+                  <span className={`tx-tag ${tx.is_simulated ? "tag-sim" : tx.x402_status === "paid" ? "tag-x402" : "tag-std"}`}>
+                    {tx.is_simulated ? "SIMULATED" : tx.x402_status === "paid" ? "X402_PROOF" : "BASE_AUTH"}
                   </span>
                 </div>
                 <div className="tx-hash-row">
                    {tx.tx_hash && tx.tx_hash !== "null" && tx.tx_hash.startsWith("0x") ? (
-                     <a 
-                      href={`https://testnet.arcscan.app/tx/${tx.tx_hash}`} 
-                      target="_blank" 
-                      rel="noreferrer"
-                      className="arc-link"
-                    >
-                      {`${tx.tx_hash.slice(0, 18)}...`}
-                    </a>
+                    tx.is_simulated ? (
+                      <span className="arc-link-sim">{`${tx.tx_hash.slice(0, 18)}...`}</span>
+                    ) : (
+                      <a 
+                        href={`https://testnet.arcscan.app/tx/${tx.tx_hash}`} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="arc-link"
+                      >
+                        {`${tx.tx_hash.slice(0, 18)}...`}
+                      </a>
+                    )
                    ) : (
                      <span className="arc-link" style={{ opacity: 0.5, border: 'none' }}>
                        {tx.tx_hash && tx.tx_hash.includes("FAILED") ? "TX_FAILED" : "PENDING_ON_CHAIN"}
