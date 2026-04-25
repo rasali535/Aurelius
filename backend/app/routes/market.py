@@ -18,8 +18,8 @@ async def get_market_prices():
         except Exception:
             # High-fidelity mock prices if CoinGecko is down
             return {
-                "usd-coin": {"usd": 1.0, "usd_24h_change": 0.01},
-                "ethereum": {"usd": 3241.5, "usd_24h_change": -1.24},
-                "bitcoin": {"usd": 63800.0, "usd_24h_change": 2.15},
-                "solana": {"usd": 141.2, "usd_24h_change": -0.87}
+                "usd-coin": {"usd": 1.0, "usd_24h_change": 0.0},
+                "ethereum": {"usd": 3840.12, "usd_24h_change": -0.45},
+                "bitcoin": {"usd": 77711.0, "usd_24h_change": 0.12},
+                "solana": {"usd": 245.15, "usd_24h_change": 1.25}
             }

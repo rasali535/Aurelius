@@ -39,7 +39,21 @@ Sub-cent cross-chain value movement without the friction of traditional bridging
 * **BurnIntent**: EIP-712 signatures allow agents to authorize unified balance transfers instantly.
 * **Frequency**: Capable of 50+ on-chain transactions per session (Proof provided in Demo Mode).
 
-### 4. Native CCTP Bridging
+### 4. Neural Core Chat (Gemini 2.0 Flash)
+
+A command-line inspired interface for natural language interaction with the agentic economy.
+
+*   **Tool Calling**: The orchestrator can autonomously call tools like `get_crypto_price`, `initiate_payment`, or `create_user_wallet` based on the operator's request.
+*   **Context Awareness**: Maintains conversation history for multi-step complex workflows.
+
+### 5. Multi-Threaded Task Orchestrator
+
+The dashboard features a real-time task log capable of tracking multiple asynchronous on-chain operations simultaneously.
+
+*   **Non-Blocking UI**: Initiate swaps, bridges, and agent jobs in parallel.
+*   **Live Status Tracking**: Each task has a unique ID and life-cycle feedback (Pending → Complete/Failed).
+
+### 6. Native CCTP Bridging
 
 Direct integration with Circle's **Cross-Chain Transfer Protocol** for 1:1 native USDC movement between Ethereum Sepolia and Arc.
 
