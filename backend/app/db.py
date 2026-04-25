@@ -235,10 +235,15 @@ class PGAggregateCursor:
         self._pipeline = pipeline
 
     async def to_list(self, length=None) -> list:
+        # Compatibility: Only support $match and $group
+        results = {}
+        match_filter = {}
+        
         for stage in self._pipeline:
-            if "$group" in stage:
+            if "$match" in stage:
+                match_filter.update(stage["$match"])
+            elif "$group" in stage:
                 group = stage["$group"]
-                results = {}
                 for out_field, expr in group.items():
                     if out_field == "_id":
                         continue
@@ -246,15 +251,24 @@ class PGAggregateCursor:
                         sum_field = expr["$sum"]
                         if isinstance(sum_field, str) and sum_field.startswith("$"):
                             col = sum_field[1:]
-                            sql = (
-                                f"SELECT COALESCE(SUM((data->>'{col}')::numeric), 0) "
-                                f"FROM {self._table}"
-                            )
+                            
+                            # Build WHERE clause from match_filter
+                            where_clause = ""
+                            params = []
+                            if match_filter:
+                                where_clause, params = _build_where(match_filter)
+                            
+                            sql = f"SELECT COALESCE(SUM((data->>'{col}')::numeric), 0) FROM {self._table} {where_clause}"
+                            
                             async with self._pool.acquire() as conn:
-                                row = await conn.fetchrow(sql)
-                            results[out_field] = float(row[0])
+                                row = await conn.fetchrow(sql, *params)
+                                if row:
+                                    results[out_field] = float(row[0])
+                
+                # After processing group, we return if we have results
                 if results:
                     return [results]
+        
         return []
 
 

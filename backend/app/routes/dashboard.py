@@ -8,14 +8,17 @@ async def dashboard_summary():
     try:
         total_prompt_runs = await db.prompt_runs.count_documents({})
         total_validations = await db.validation_requests.count_documents({})
-        total_payments = await db.payment_events.count_documents({})
+        # Only count settled payments for metrics
+        total_payments = await db.payment_events.count_documents({"status": "settled"})
         
         payments = await db.payment_events.find(
             {"amount_usdc": {"$gt": 0}}, 
-            {"_id": 1, "amount_usdc": 1, "status": 1, "tx_hash": 1, "settled_at": 1}
+            {"_id": 1, "amount_usdc": 1, "status": 1, "tx_hash": 1, "settled_at": 1, "x402_status": 1}
         ).sort("created_at", -1).limit(20).to_list(length=20)
 
+        # Calculate total spend using only settled payments
         _agg_cursor = db.payment_events.aggregate([
+            {"$match": {"status": "settled"}},
             {"$group": {"_id": None, "total": {"$sum": "$amount_usdc"}}}
         ])
         total_spend_pipeline = await _agg_cursor.to_list(length=1)
