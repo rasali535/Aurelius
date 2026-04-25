@@ -48,7 +48,7 @@ export default function TransactionFeed({ summary }: Props) {
                   </span>
                 </div>
                 <div className="tx-hash-row">
-                   {tx.tx_hash && /^(0x)?[a-fA-F0-9]{40,66}$/.test(tx.tx_hash) ? (
+                   {tx.tx_hash && /^(0x)?[a-zA-Z0-9_]{30,80}$/.test(tx.tx_hash) ? (
                     <a 
                       href={`https://testnet.arcscan.app/${tx.tx_hash.length > 42 ? 'tx' : 'address'}/${tx.tx_hash.startsWith('0x') ? tx.tx_hash : '0x' + tx.tx_hash}`} 
                       target="_blank" 

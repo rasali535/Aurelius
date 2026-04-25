@@ -13,7 +13,7 @@ async def dashboard_summary():
         payments = await db.payment_events.find(
             {"amount_usdc": {"$gt": 0}}, 
             {"_id": 1, "amount_usdc": 1, "status": 1, "tx_hash": 1, "settled_at": 1}
-        ).sort("settled_at", -1).limit(20).to_list(length=20)
+        ).sort("created_at", -1).limit(20).to_list(length=20)
 
         _agg_cursor = db.payment_events.aggregate([
             {"$group": {"_id": None, "total": {"$sum": "$amount_usdc"}}}

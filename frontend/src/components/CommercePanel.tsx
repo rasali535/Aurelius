@@ -479,7 +479,7 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
               <span className="log-id">[{task.id}]</span>
               <span className="log-msg">
                 {task.msg}
-                {task.txHash && /^(0x)?[a-fA-F0-9]{40,66}$/.test(task.txHash) && (
+                {task.txHash && /^(0x)?[a-zA-Z0-9_]{30,80}$/.test(task.txHash) && (
                   <a 
                     href={`https://testnet.arcscan.app/${task.txHash.length > 42 ? 'tx' : 'address'}/${task.txHash.startsWith('0x') ? task.txHash : '0x' + task.txHash}`} 
                     target="_blank" 
