@@ -367,9 +367,9 @@ class CircleService:
         )
         print(f"  Approval confirmed: {approve_tx}")
         
-        # Add a small delay to ensure allowance is indexed on-chain
-        print("  Waiting 15s for allowance propagation...")
-        await asyncio.sleep(15)
+        # Add a larger delay to ensure allowance is indexed on-chain
+        print("  Waiting 30s for allowance propagation...")
+        await asyncio.sleep(30)
 
         # Step 2: DepositForBurn
         print("Step 2/4: Depositing for burn...")
