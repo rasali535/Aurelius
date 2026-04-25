@@ -531,7 +531,9 @@ class CircleService:
             "types": {
                 "EIP712Domain": [
                     {"name": "name", "type": "string"},
-                    {"name": "version", "type": "string"}
+                    {"name": "version", "type": "string"},
+                    {"name": "chainId", "type": "uint256"},
+                    {"name": "verifyingContract", "type": "address"}
                 ],
                 "TransferSpec": [
                     {"name": "version", "type": "uint32"},
@@ -555,7 +557,12 @@ class CircleService:
                     {"name": "spec", "type": "TransferSpec"}
                 ]
             },
-            "domain": {"name": "GatewayWallet", "version": "1"},
+            "domain": {
+                "name": "GatewayWallet", 
+                "version": "1",
+                "chainId": 26,
+                "verifyingContract": ARC_CONFIG["gateway_wallet"]
+            },
             "primaryType": "BurnIntent",
             "message": {
                 "maxBlockHeight": str((1 << 256) - 1),
