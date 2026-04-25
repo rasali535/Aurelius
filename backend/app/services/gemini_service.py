@@ -95,6 +95,14 @@ class GeminiService:
         self.aiml_base_url = settings.AIML_API_URL
         self.default_model = "google/gemini-2.0-flash" if self.aiml_api_key else "gemini-1.5-flash"
 
+    @property
+    def available_models(self):
+        return [
+            {"id": "google/gemini-2.0-flash", "category": "fast", "price_usdc": 0.0001, "description": "Optimized for transactional speed."},
+            {"id": "google/gemini-2.0-pro-exp-02-05", "category": "reasoning", "price_usdc": 0.0005, "description": "Deep reasoning and treasury management."},
+            {"id": "anthropic/claude-3.5-sonnet", "category": "reasoning", "price_usdc": 0.0008, "description": "Highly nuanced legal and architectural reasoning."}
+        ]
+
     async def chat_with_tools(self, prompt: str, chat_history=None):
         """Uses Google Direct if available, else falls back to AI/ML API."""
         if self.google_api_key:
