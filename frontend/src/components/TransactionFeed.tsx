@@ -28,7 +28,7 @@ export default function TransactionFeed({ summary, isLive }: Props) {
         id: `TX_${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
         amount_usdc: +(Math.random() * 0.01).toFixed(4),
         status: "settled",
-        tx_hash: `0x${Math.random().toString(16).substr(2, 64)}`,
+        tx_hash: `0x${Array.from({length: 8}, () => Math.random().toString(16).substr(2, 8)).join('')}`,
         settled_at: new Date().toISOString(),
         x402_status: Math.random() > 0.5 ? "paid" : "settled"
       };

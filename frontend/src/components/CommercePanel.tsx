@@ -51,15 +51,15 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
   const [jobEvaluator, setJobEvaluator] = useState("0x5B38Da6a701c568545dCfcB03FcB875f56beddC4"); // Demo Evaluator
   const [jobDescription, setJobDescription] = useState("Analyze sentiment for Arc Network data.");
   const [gatewayAmount, setGatewayAmount] = useState("0.001");
-  const [tasks, setTasks] = useState<{ id: string, type: "success" | "error" | "pending", msg: string, timestamp: string }[]>([]);
+  const [tasks, setTasks] = useState<{ id: string, type: "success" | "error" | "pending", msg: string, timestamp: string, txHash?: string }[]>([]);
 
-  const addLog = (id: string, type: "success" | "error" | "pending", msg: string) => {
+  const addLog = (id: string, type: "success" | "error" | "pending", msg: string, txHash?: string) => {
     const timestamp = new Date().toLocaleTimeString();
-    setTasks(prev => [{ id, type, msg, timestamp }, ...prev].slice(0, 50));
+    setTasks(prev => [{ id, type, msg, timestamp, txHash }, ...prev].slice(0, 50));
   };
 
-  const updateLog = (id: string, type: "success" | "error" | "pending", msg: string) => {
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, type, msg } : t));
+  const updateLog = (id: string, type: "success" | "error" | "pending", msg: string, txHash?: string) => {
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, type, msg, txHash: txHash || t.txHash } : t));
   };
 
   const handleSwap = async () => {
@@ -102,7 +102,7 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
     addLog(taskId, "pending", "REGISTERING_AGENT_IDENTITY...");
     try {
       const res = await api.post("/commerce/agent/register", { metadata_uri: agentMetadata });
-      updateLog(taskId, "success", `AGENT_REGISTERED! TX: ${res.data.tx_hash?.slice(0, 16)}...`);
+      updateLog(taskId, "success", `AGENT_REGISTERED!`, res.data.tx_hash);
     } catch (err: any) {
       updateLog(taskId, "error", `REGISTRATION_FAILED: ${err.response?.data?.detail}`);
     }
@@ -117,7 +117,7 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
         evaluator: jobEvaluator, 
         description: jobDescription 
       });
-      updateLog(taskId, "success", `JOB_CREATED! TX: ${res.data.tx_hash?.slice(0, 16)}...`);
+      updateLog(taskId, "success", `JOB_CREATED!`, res.data.tx_hash);
     } catch (err: any) {
       updateLog(taskId, "error", `JOB_FAILED: ${err.response?.data?.detail}`);
     }
@@ -132,7 +132,7 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
         destination_address: summary?.wallet_address,
         amount: parseFloat(gatewayAmount)
       });
-      updateLog(taskId, "success", `NANOPAYMENT_COMPLETE! TX: ${res.data.tx_hash?.slice(0, 16)}...`);
+      updateLog(taskId, "success", `NANOPAYMENT_COMPLETE!`, res.data.tx_hash);
     } catch (err: any) {
       updateLog(taskId, "error", `GATEWAY_ERROR: ${err.response?.data?.detail}`);
     }
@@ -468,7 +468,19 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
             <div key={task.id} className={`log-entry ${task.type}`}>
               <span className="log-time">[{task.timestamp}]</span>
               <span className="log-id">[{task.id}]</span>
-              <span className="log-msg">{task.msg}</span>
+              <span className="log-msg">
+                {task.msg}
+                {task.txHash && (
+                  <a 
+                    href={`https://testnet.arcscan.app/tx/${task.txHash}`} 
+                    target="_blank" 
+                    rel="noreferrer"
+                    style={{ color: 'var(--primary)', marginLeft: '8px', textDecoration: 'underline', opacity: 0.8 }}
+                  >
+                    VIEW_TX
+                  </a>
+                )}
+              </span>
               {task.type === "pending" && <span className="log-spinner">⠋</span>}
             </div>
           ))}
