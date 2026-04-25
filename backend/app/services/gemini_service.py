@@ -111,27 +111,35 @@ async def get_crypto_price(symbol: str):
         return {"status": "error", "message": str(e)}
 
 async def search_web(query: str):
-    """Searches the web for real-time information using DuckDuckGo."""
-    url = f"https://api.duckduckgo.com/?q={query}&format=json&no_html=1&skip_disambig=1"
+    """Searches the web for real-time information and returns snippets."""
+    url = f"https://html.duckduckgo.com/html/?q={query}"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            res = await client.get(url)
-            data = res.json()
+        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+            res = await client.get(url, headers=headers)
+            if res.status_code != 200:
+                return {"status": "error", "message": f"Search failed with status {res.status_code}"}
             
-            # Extract Abstract or related results
-            answer = data.get("AbstractText", "")
-            if not answer and data.get("RelatedTopics"):
-                # Use first related topic snippet if abstract is empty
-                answer = data["RelatedTopics"][0].get("Text", "")
+            html = res.text
+            # Simple manual parsing of DDG HTML snippets
+            snippets = []
+            parts = html.split('class="result__snippet"')
+            for part in parts[1:6]: # Get top 5 results
+                snippet = part.split('</a>')[0].split('>')[-1].strip()
+                # Clean up some HTML entities if present
+                snippet = snippet.replace("&amp;", "&").replace("&quot;", '"').replace("&#x27;", "'")
+                if snippet:
+                    snippets.append(snippet)
             
-            if answer:
+            if snippets:
                 return {
                     "status": "success",
                     "query": query,
-                    "result": answer,
-                    "source": data.get("AbstractSource", "DuckDuckGo")
+                    "results": snippets[:3] # Return top 3
                 }
-            return {"status": "no_results", "message": "No direct answer found on the web."}
+            return {"status": "no_results", "message": "No relevant snippets found."}
     except Exception as e:
         logger.error(f"Web search tool failed: {e}")
         return {"status": "error", "message": str(e)}
@@ -424,6 +432,7 @@ class GeminiService:
 
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
+                # First pass: Get completion (potential tool call)
                 response = await client.post(
                     f"{self.aiml_base_url}/chat/completions",
                     headers={"Authorization": f"Bearer {self.aiml_api_key}"},
@@ -433,14 +442,24 @@ class GeminiService:
                         "tools": tools
                     }
                 )
-                if response.status_code == 200:
-                    resp_json = response.json()
-                    message = resp_json["choices"][0]["message"]
+                if response.status_code != 200:
+                    logger.error(f"AI/ML API Error ({response.status_code}): {response.text}")
+                    return await self._fallback(prompt)
+
+                resp_json = response.json()
+                message = resp_json["choices"][0]["message"]
+                
+                # Check for tool calls
+                if message.get("tool_calls"):
+                    tool_calls = message["tool_calls"]
+                    # Add AI's tool call message to history
+                    messages.append(message)
                     
-                    if message.get("tool_calls"):
-                        tool_call = message["tool_calls"][0]
+                    for tool_call in tool_calls:
                         func_name = tool_call["function"]["name"]
                         func_args = json.loads(tool_call["function"]["arguments"])
+                        
+                        logger.info(f"Executing tool: {func_name}")
                         
                         if func_name == "create_user_wallet":
                             res = await create_user_wallet(**func_args)
@@ -466,13 +485,30 @@ class GeminiService:
                             res = await search_web(**func_args)
                         else:
                             res = {"status": "error", "message": "Unknown tool"}
-                            
-                        return f"Tool Execution: {func_name} completed with result: {json.dumps(res)}"
-                    return message.get("content", "")
-                else:
-                    logger.error(f"AI/ML API Error ({response.status_code}): {response.text}")
+                        
+                        # Add tool result to history
+                        messages.append({
+                            "role": "tool",
+                            "tool_call_id": tool_call["id"],
+                            "name": func_name,
+                            "content": json.dumps(res)
+                        })
+                    
+                    # Second pass: Get final response with tool results
+                    final_response = await client.post(
+                        f"{self.aiml_base_url}/chat/completions",
+                        headers={"Authorization": f"Bearer {self.aiml_api_key}"},
+                        json={
+                            "model": "google/gemini-2.0-flash",
+                            "messages": messages
+                        }
+                    )
+                    if final_response.status_code == 200:
+                        return final_response.json()["choices"][0]["message"].get("content", "")
+                
+                return message.get("content", "")
         except Exception as e:
-            logger.error(f"AI/ML API failed: {e}")
+            logger.error(f"AI/ML API tool calling flow failed: {e}")
             
         return await self._fallback(prompt)
 
