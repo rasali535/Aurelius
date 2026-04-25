@@ -12,6 +12,7 @@ type Props = {
 
 export default function TransactionFeed({ summary, isLive }: Props) {
   const [localTxs, setLocalTxs] = useState<ExtendedTransaction[]>([]);
+  const [showSimulated, setShowSimulated] = useState(true);
 
   useEffect(() => {
     if (summary?.latest_transactions) {
@@ -42,23 +43,40 @@ export default function TransactionFeed({ summary, isLive }: Props) {
     return () => clearInterval(interval);
   }, [isLive]);
 
+  const filteredTxs = showSimulated ? localTxs : localTxs.filter(t => !t.is_simulated);
+
   return (
     <div className="card transaction-feed-card">
-      <div className="ticker-header" style={{ marginBottom: 20 }}>
-        <span style={{ fontFamily: "var(--terminal-font)", fontSize: "0.8rem", color: "var(--primary)", letterSpacing: "0.15em" }}>
-          LIVE_SETTLEMENT_FEED
-        </span>
-        {isLive && (
+      <div className="feed-header">
+        <div className="header-left">
+          <h2><span className="text-primary">03</span> SETTLEMENT_FEED</h2>
           <div className="live-indicator">
-            <span className="blink"></span>
-            SYNCING
+            <div className="blink"></div>
+            LIVE_FEED
           </div>
-        )}
+        </div>
+        <div className="header-actions">
+          <button 
+            className="filter-btn"
+            onClick={() => setShowSimulated(!showSimulated)}
+            title={showSimulated ? "Hide Simulated" : "Show Simulated"}
+          >
+            {showSimulated ? "REAL_ONLY" : "SHOW_ALL"}
+          </button>
+          <a 
+            href="https://testnet.arcscan.app/" 
+            target="_blank" 
+            rel="noreferrer" 
+            className="explorer-link-btn"
+          >
+            OPEN_EXPLORER
+          </a>
+        </div>
       </div>
-
+      
       <div className="transaction-list-cyber">
-        {localTxs.length > 0 ? (
-          localTxs.map((tx) => (
+        {filteredTxs.length > 0 ? (
+          filteredTxs.map((tx, idx) => (
             <div key={tx.id || tx.tx_hash} className="tx-row-cyber new-tx-animate">
               <div className="tx-main">
                 <div className="tx-id-row">
