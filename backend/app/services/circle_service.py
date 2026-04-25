@@ -168,6 +168,7 @@ class CircleService:
         payload = {
             "idempotencyKey": str(uuid.uuid4()),
             "walletId": wallet_id,
+            "blockchain": "ARC-TESTNET",
             "data": json.dumps(typed_data),
             "entitySecretCiphertext": self._get_ciphertext()
         }
