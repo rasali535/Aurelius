@@ -180,7 +180,7 @@ export default function Dashboard({ onBack }: { onBack: () => void }) {
 
         {/* Right Column: Transaction Log */}
         <div className="transaction-log-column">
-          <TransactionFeed summary={summary} isLive={isSimulating || isBatchRunning} />
+          <TransactionFeed summary={summary} />
         </div>
         </div>
       </div>
