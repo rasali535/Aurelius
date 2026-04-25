@@ -268,20 +268,44 @@ class CircleService:
                 print(f"CIRCLE API ERROR ({resp.status_code}) in contract_execution: {error_detail}")
                 raise HTTPException(status_code=resp.status_code, detail=f"CIRCLE_API_ERROR: {error_detail}")
             
-            job_id = resp.json()["data"]["id"]
+            resp_data = resp.json().get("data", {})
+            # Circle may return the transaction directly or a job ID
+            job_id = resp_data.get("id") or (resp_data.get("transaction", {}) or {}).get("id")
+            if not job_id:
+                raise HTTPException(status_code=500, detail=f"Circle API did not return a job ID: {resp.text[:300]}")
             
             # Poll for completion
             status_url = f"{self.base_url}/v1/w3s/transactions/{job_id}"
-            for _ in range(60):
+            print(f"  Polling for transaction {job_id}...")
+            for i in range(120):  # up to 120s
                 status_resp = await client.get(status_url, headers=self.headers)
                 if status_resp.status_code == 200:
                     tx_wrapper = status_resp.json().get("data", {}).get("transaction", {})
-                    if tx_wrapper.get("state") == "COMPLETE":
-                        return tx_wrapper.get("txHash")
-                    elif tx_wrapper.get("state") == "FAILED":
-                        raise Exception(f"Contract execution failed: {tx_wrapper.get('errorMessage')}")
+                    # Circle uses 'state' for W3S transactions
+                    tx_state = tx_wrapper.get("state") or tx_wrapper.get("status", "")
+                    
+                    if tx_state in ("COMPLETE", "CONFIRMED"):
+                        tx_hash = tx_wrapper.get("txHash") or tx_wrapper.get("transactionHash")
+                        if not tx_hash:
+                            # Sometimes it takes a moment for the hash to appear even if confirmed
+                            if i < 115:
+                                await asyncio.sleep(1)
+                                continue
+                            print(f"WARNING: Tx state={tx_state} but no txHash found after 115s. Wrapper: {tx_wrapper}")
+                            return f"0x_completed_{job_id}"
+                        print(f"  Transaction {tx_state}: {tx_hash}")
+                        return tx_hash
+                    elif tx_state in ("FAILED", "CANCELLED"):
+                        err_msg = tx_wrapper.get("errorMessage") or tx_wrapper.get("error") or "Unknown"
+                        raise Exception(f"Contract execution {tx_state}: {err_msg} | Full: {tx_wrapper}")
+                    
+                    if i % 5 == 0:
+                        print(f"    ... state={tx_state} ({i}s)")
+                else:
+                    print(f"    ... status check failed ({status_resp.status_code})")
+                    
                 await asyncio.sleep(1)
-            raise Exception(f"Contract execution timed out: {job_id}")
+            raise Exception(f"Contract execution timed out after 120s: {job_id}")
 
     async def get_cctp_attestation(self, source_domain: int, tx_hash: str):
         """Polls the Iris API for a CCTP attestation."""
