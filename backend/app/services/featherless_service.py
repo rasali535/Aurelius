@@ -108,5 +108,3 @@ class FeatherlessService:
             return {"error": str(e)}
 
 featherless_service = FeatherlessService()
-
-featherless_service = FeatherlessService()
