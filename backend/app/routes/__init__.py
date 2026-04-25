@@ -1,1 +1,1 @@
-from . import orchestrator, dashboard, commerce, market, router
+from . import orchestrator, dashboard, commerce, market, router, chat
