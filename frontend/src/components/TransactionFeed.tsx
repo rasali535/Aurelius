@@ -48,18 +48,19 @@ export default function TransactionFeed({ summary }: Props) {
                   </span>
                 </div>
                 <div className="tx-hash-row">
-                   {tx.tx_hash && tx.tx_hash !== "null" && tx.tx_hash.startsWith("0x") ? (
+                   {tx.tx_hash && !["pending", "processing", "null", "undefined"].includes(tx.tx_hash.toLowerCase()) ? (
                     <a 
-                      href={`https://testnet.arcscan.app/tx/${tx.tx_hash}`} 
+                      href={tx.tx_hash.startsWith("0x") ? `https://testnet.arcscan.app/tx/${tx.tx_hash}` : `https://testnet.arcscan.app/address/${tx.tx_hash}`} 
                       target="_blank" 
                       rel="noreferrer" 
                       className="arc-link"
+                      style={{ color: 'var(--primary)', opacity: 0.9 }}
                     >
-                      {`${tx.tx_hash.slice(0, 18)}...`}
+                      {tx.tx_hash.length > 20 ? `${tx.tx_hash.slice(0, 20)}...` : tx.tx_hash}
                     </a>
                    ) : (
                      <span className="arc-link" style={{ opacity: 0.5, border: 'none' }}>
-                       {tx.tx_hash && tx.tx_hash.includes("FAILED") ? "TX_FAILED" : "PENDING_ON_CHAIN"}
+                       {tx.tx_hash && tx.tx_hash.toLowerCase().includes("failed") ? "TX_FAILED" : "INDEXING_ON_CHAIN"}
                      </span>
                    )}
                 </div>

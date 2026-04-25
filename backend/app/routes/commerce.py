@@ -220,6 +220,20 @@ async def execute_gateway_transfer(payload: GatewayTransferRequest):
             destination_address=payload.destination_address,
             amount=payload.amount
         )
+
+        # Record event
+        payment_event = {
+            "_id": generate_id("pay"),
+            "validation_request_id": f"gateway_{uuid4().hex[:8]}",
+            "amount_usdc": payload.amount,
+            "status": "settled",
+            "tx_hash": tx_hash,
+            "x402_status": "paid",
+            "created_at": utc_now(),
+            "settled_at": utc_now()
+        }
+        await db.payment_events.insert_one(payment_event)
+
         return {"status": "success", "tx_hash": tx_hash}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -239,6 +253,20 @@ async def register_agent(payload: AgentRegisterRequest):
             wallet_id=requester["wallet_id"],
             metadata_uri=payload.metadata_uri
         )
+
+        # Record event (Registration Fee)
+        payment_event = {
+            "_id": generate_id("pay"),
+            "validation_request_id": f"reg_{uuid4().hex[:8]}",
+            "amount_usdc": 0.0001, # Sub-$0.01 Registration Fee
+            "status": "settled",
+            "tx_hash": tx_hash,
+            "x402_status": "paid",
+            "created_at": utc_now(),
+            "settled_at": utc_now()
+        }
+        await db.payment_events.insert_one(payment_event)
+
         return {"status": "success", "tx_hash": tx_hash}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -262,6 +290,20 @@ async def create_job(payload: CreateJobRequest):
             evaluator=payload.evaluator,
             description=payload.description
         )
+
+        # Record event (Job Creation Fee)
+        payment_event = {
+            "_id": generate_id("pay"),
+            "validation_request_id": f"job_{uuid4().hex[:8]}",
+            "amount_usdc": 0.0001,
+            "status": "settled",
+            "tx_hash": tx_hash,
+            "x402_status": "paid",
+            "created_at": utc_now(),
+            "settled_at": utc_now()
+        }
+        await db.payment_events.insert_one(payment_event)
+
         return {"status": "success", "tx_hash": tx_hash}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -283,6 +325,20 @@ async def fund_job(payload: FundJobRequest):
             job_id=payload.job_id,
             amount=payload.amount
         )
+
+        # Record event
+        payment_event = {
+            "_id": generate_id("pay"),
+            "validation_request_id": f"fund_{uuid4().hex[:8]}",
+            "amount_usdc": payload.amount,
+            "status": "settled",
+            "tx_hash": tx_hash,
+            "x402_status": "paid",
+            "created_at": utc_now(),
+            "settled_at": utc_now()
+        }
+        await db.payment_events.insert_one(payment_event)
+
         return {"status": "success", "tx_hash": tx_hash}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

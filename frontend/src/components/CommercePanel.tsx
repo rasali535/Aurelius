@@ -50,7 +50,7 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
   const [jobProvider, setJobProvider] = useState("0x3E5A42D19a584093952fA6d7667C82D7068560F4"); // Demo Provider
   const [jobEvaluator, setJobEvaluator] = useState("0x5B38Da6a701c568545dCfcB03FcB875f56beddC4"); // Demo Evaluator
   const [jobDescription, setJobDescription] = useState("Analyze sentiment for Arc Network data.");
-  const [gatewayAmount, setGatewayAmount] = useState("0.001");
+  const [gatewayAmount, setGatewayAmount] = useState("0.0001");
   const [tasks, setTasks] = useState<{ id: string, type: "success" | "error" | "pending", msg: string, timestamp: string, txHash?: string }[]>([]);
 
   const addLog = (id: string, type: "success" | "error" | "pending", msg: string, txHash?: string) => {
