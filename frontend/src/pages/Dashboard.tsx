@@ -6,6 +6,7 @@ import AgentNetworkGraphic from "../components/AgentNetworkGraphic";
 import MarketTicker from "../components/MarketTicker";
 import AgentPaymentFlow from "../components/AgentPaymentFlow";
 import CommercePanel from "../components/CommercePanel";
+import ChatPanel from "../components/ChatPanel";
 import { api } from "../services/api";
 import type { DashboardSummary, PromptRunResponse } from "../types";
 
@@ -159,6 +160,10 @@ export default function Dashboard({ onBack }: { onBack: () => void }) {
         {/* Center Column: Neural Core */}
         <div className="neural-core">
           <CommercePanel summary={summary} />
+          
+          <div style={{ marginBottom: '20px' }}>
+             <ChatPanel />
+          </div>
           
           <AgentPaymentFlow isLive={isSimulating || isBatchRunning} />
 

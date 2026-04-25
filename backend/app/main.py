@@ -65,7 +65,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 # --- Deferred Imports ---
 try:
     from app.db import init_db, db
-    from app.routes import orchestrator, dashboard, commerce, market, router
+    from app.routes import orchestrator, dashboard, commerce, market, router, chat
     
     # Routes at /api
     app.include_router(orchestrator.router, prefix="/api")
@@ -73,6 +73,7 @@ try:
     app.include_router(commerce.router, prefix="/api/commerce")
     app.include_router(market.router, prefix="/api")
     app.include_router(router.router, prefix="/api/router")
+    app.include_router(chat.router, prefix="/api/chat")
 except Exception as e:
     logger.error(f"Router Import Error: {e}")
 
