@@ -80,12 +80,11 @@ class CircleService:
             )
             return base64.b64encode(ciphertext).decode()
         except Exception as e:
-            # Log the error but don't crash - fallback to the static ciphertext
-            masked_pem = (pem_content[:30] + "..." + pem_content[-30:]) if len(pem_content) > 60 else "TOO_SHORT"
-            print(f"CRITICAL: Failed to load/encrypt Circle Public Key: {e}")
-            print(f"PEM Format Check: length={len(pem_content)}, start='{pem_content[:20]}', end='{pem_content[-20:]}'")
-            # If we reach here, either the key is truly invalid or the fallback is our only hope
-            return settings.CIRCLE_ENTITY_SECRET_CIPHERTEXT
+            # Log the error and raise it so the user sees the REAL reason for failure
+            # instead of a confusing "reusing ciphertext" error from the fallback
+            error_msg = f"ENCRYPTION_FAILURE: {e}. Key length: {len(pem_content)}"
+            print(f"CRITICAL: {error_msg}")
+            raise Exception(error_msg)
 
     async def create_wallet_set(self, name: str):
         url = f"{self.base_url}/v1/w3s/developer/walletSets"
