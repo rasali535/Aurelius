@@ -5,7 +5,7 @@ import TransactionFeed from "../components/TransactionFeed";
 import AgentNetworkGraphic from "../components/AgentNetworkGraphic";
 import MarketTicker from "../components/MarketTicker";
 import AgentPaymentFlow from "../components/AgentPaymentFlow";
-import SwapPanel from "../components/SwapPanel";
+import CommercePanel from "../components/CommercePanel";
 import { api } from "../services/api";
 import type { DashboardSummary, PromptRunResponse } from "../types";
 
@@ -142,7 +142,7 @@ export default function Dashboard({ onBack }: { onBack: () => void }) {
 
           <MarketTicker />
 
-          <SwapPanel summary={summary} />
+          <CommercePanel summary={summary} />
           
           <div className="card simulation-control">
             <h3 style={{ fontSize: '0.86rem', color: 'var(--success)', marginBottom: '8px' }}>AUTO_PILOT_ENGINE</h3>

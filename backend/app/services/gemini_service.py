@@ -50,6 +50,44 @@ async def initiate_payment(amount_usdc: float, to_address: str, from_wallet_id: 
         logger.error(f"Payment initiation failed: {e}")
         return {"status": "error", "message": str(e)}
 
+async def bridge_usdc(amount: float, source_blockchain: str, destination_blockchain: str, wallet_id: str, destination_address: str):
+    try:
+        result = await circle_service.bridge_usdc(
+            wallet_id=wallet_id,
+            amount=amount,
+            source_blockchain=source_blockchain,
+            destination_blockchain=destination_blockchain,
+            destination_address=destination_address
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Bridge tool failed: {e}")
+        return {"status": "error", "message": str(e)}
+
+async def register_ai_agent(metadata_uri: str, wallet_id: str):
+    try:
+        tx_hash = await circle_service.register_agent(wallet_id, metadata_uri)
+        return {"status": "success", "tx_hash": tx_hash}
+    except Exception as e:
+        logger.error(f"Register agent tool failed: {e}")
+        return {"status": "error", "message": str(e)}
+
+async def create_agent_job(provider: str, evaluator: str, description: str, wallet_id: str):
+    try:
+        tx_hash = await circle_service.create_job(wallet_id, provider, evaluator, description)
+        return {"status": "success", "tx_hash": tx_hash}
+    except Exception as e:
+        logger.error(f"Create job tool failed: {e}")
+        return {"status": "error", "message": str(e)}
+
+async def gateway_nanopayment(destination_blockchain: str, destination_address: str, amount: float, wallet_id: str):
+    try:
+        tx_hash = await circle_service.gateway_transfer(wallet_id, destination_blockchain, destination_address, amount)
+        return {"status": "success", "tx_hash": tx_hash}
+    except Exception as e:
+        logger.error(f"Gateway tool failed: {e}")
+        return {"status": "error", "message": str(e)}
+
 class GeminiService:
     def __init__(self):
         self.google_api_key = settings.GOOGLE_API_KEY
@@ -106,6 +144,73 @@ class GeminiService:
                         "required": ["amount_usdc", "to_address", "from_wallet_id", "from_wallet_address"]
                     }
                 }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "bridge_usdc",
+                    "description": "Bridges native USDC across blockchains using CCTP.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "amount": {"type": "number"},
+                            "source_blockchain": {"type": "string", "enum": ["ARC-TESTNET", "ETH-SEPOLIA"]},
+                            "destination_blockchain": {"type": "string", "enum": ["ARC-TESTNET", "ETH-SEPOLIA"]},
+                            "wallet_id": {"type": "string"},
+                            "destination_address": {"type": "string"}
+                        },
+                        "required": ["amount", "source_blockchain", "destination_blockchain", "wallet_id", "destination_address"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "register_ai_agent",
+                    "description": "Registers an AI agent on the Arc Network (ERC-8004) to establish identity and reputation.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "metadata_uri": {"type": "string", "description": "URI pointing to agent metadata (JSON)."},
+                            "wallet_id": {"type": "string", "description": "The Circle wallet ID of the agent."}
+                        },
+                        "required": ["metadata_uri", "wallet_id"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "create_agent_job",
+                    "description": "Creates a task-based commerce job (ERC-8183) with automated escrow.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "provider": {"type": "string", "description": "Wallet address of the service provider agent."},
+                            "evaluator": {"type": "string", "description": "Wallet address of the independent evaluator agent."},
+                            "description": {"type": "string", "description": "Task description."},
+                            "wallet_id": {"type": "string", "description": "The Circle wallet ID of the requester."}
+                        },
+                        "required": ["provider", "evaluator", "description", "wallet_id"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "gateway_nanopayment",
+                    "description": "Facilitates sub-cent payments using unified Gateway balances across chains.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "destination_blockchain": {"type": "string", "enum": ["ETH-SEPOLIA", "AVALANCHE-FUJI", "BASE-SEPOLIA"]},
+                            "destination_address": {"type": "string", "description": "Recipient address."},
+                            "amount": {"type": "number", "description": "USDC amount (can be very small)."},
+                            "wallet_id": {"type": "string", "description": "The Circle wallet ID."}
+                        },
+                        "required": ["destination_blockchain", "destination_address", "amount", "wallet_id"]
+                    }
+                }
             }
         ]
 
@@ -139,6 +244,14 @@ class GeminiService:
                             res = await create_user_wallet(**func_args)
                         elif func_name == "initiate_payment":
                             res = await initiate_payment(**func_args)
+                        elif func_name == "bridge_usdc":
+                            res = await bridge_usdc(**func_args)
+                        elif func_name == "register_ai_agent":
+                            res = await register_ai_agent(**func_args)
+                        elif func_name == "create_agent_job":
+                            res = await create_agent_job(**func_args)
+                        elif func_name == "gateway_nanopayment":
+                            res = await gateway_nanopayment(**func_args)
                         else:
                             res = {"status": "error"}
                             

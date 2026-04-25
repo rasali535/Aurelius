@@ -64,6 +64,20 @@ async def manual_payment(payload: ManualPaymentRequest):
             amount=payload.amount
         )
         
+        # Record the event for dashboard metrics
+        payment_event = {
+            "_id": generate_id("pay"),
+            "validation_request_id": f"manual_{uuid4().hex[:8]}",
+            "amount_usdc": payload.amount,
+            "status": "settled",
+            "tx_hash": tx_hash,
+            "x402_status": "paid",
+            "erc8004_trust_score": 100,
+            "created_at": utc_now(),
+            "settled_at": utc_now()
+        }
+        await db.payment_events.insert_one(payment_event)
+        
         return {"status": "success", "tx_hash": tx_hash}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -104,5 +118,126 @@ async def execute_swap(payload: SwapRequest):
             "from_token": payload.from_token,
             "to_token": payload.to_token
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+class BridgeRequest(BaseModel):
+    amount: float
+    source_blockchain: str
+    destination_blockchain: str
+    destination_address: str
+
+@router.post("/bridge")
+async def execute_bridge(payload: BridgeRequest):
+    """
+    Executes a cross-chain USDC transfer using CCTP.
+    """
+    try:
+        # Get the default requester wallet
+        requester = await db.config.find_one({"_id": "requester_wallet"})
+        if not requester:
+            wallets = await circle_service.list_wallets()
+            if wallets:
+                requester = {
+                    "wallet_id": wallets[0]["id"],
+                    "wallet_address": wallets[0]["address"]
+                }
+            else:
+                raise Exception("No requester wallet configured.")
+
+        result = await circle_service.bridge_usdc(
+            wallet_id=requester["wallet_id"],
+            amount=payload.amount,
+            source_blockchain=payload.source_blockchain,
+            destination_blockchain=payload.destination_blockchain,
+            destination_address=payload.destination_address
+        )
+        
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class AgentRegisterRequest(BaseModel):
+    metadata_uri: str
+
+@router.post("/agent/register")
+async def register_agent(payload: AgentRegisterRequest):
+    """Registers an AI agent on Arc (ERC-8004)."""
+    try:
+        requester = await db.config.find_one({"_id": "requester_wallet"})
+        if not requester:
+            raise Exception("No requester wallet configured.")
+            
+        tx_hash = await circle_service.register_agent(
+            wallet_id=requester["wallet_id"],
+            metadata_uri=payload.metadata_uri
+        )
+        return {"status": "success", "tx_hash": tx_hash}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class CreateJobRequest(BaseModel):
+    provider: str
+    evaluator: str
+    description: str
+
+@router.post("/job/create")
+async def create_job(payload: CreateJobRequest):
+    """Creates a new agentic job (ERC-8183)."""
+    try:
+        requester = await db.config.find_one({"_id": "requester_wallet"})
+        if not requester:
+            raise Exception("No requester wallet configured.")
+            
+        tx_hash = await circle_service.create_job(
+            wallet_id=requester["wallet_id"],
+            provider=payload.provider,
+            evaluator=payload.evaluator,
+            description=payload.description
+        )
+        return {"status": "success", "tx_hash": tx_hash}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class FundJobRequest(BaseModel):
+    job_id: str
+    amount: float
+
+@router.post("/job/fund")
+async def fund_job(payload: FundJobRequest):
+    """Funds a job's escrow on Arc."""
+    try:
+        requester = await db.config.find_one({"_id": "requester_wallet"})
+        if not requester:
+            raise Exception("No requester wallet configured.")
+            
+        tx_hash = await circle_service.fund_job(
+            wallet_id=requester["wallet_id"],
+            job_id=payload.job_id,
+            amount=payload.amount
+        )
+        return {"status": "success", "tx_hash": tx_hash}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class GatewayTransferRequest(BaseModel):
+    destination_blockchain: str
+    destination_address: str
+    amount: float
+
+@router.post("/gateway/transfer")
+async def gateway_transfer(payload: GatewayTransferRequest):
+    """Executes a unified balance transfer via Gateway."""
+    try:
+        requester = await db.config.find_one({"_id": "requester_wallet"})
+        if not requester:
+            raise Exception("No requester wallet configured.")
+            
+        tx_hash = await circle_service.gateway_transfer(
+            wallet_id=requester["wallet_id"],
+            destination_blockchain=payload.destination_blockchain,
+            destination_address=payload.destination_address,
+            amount=payload.amount
+        )
+        return {"status": "success", "tx_hash": tx_hash}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
