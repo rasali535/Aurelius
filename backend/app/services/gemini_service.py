@@ -110,6 +110,32 @@ async def get_crypto_price(symbol: str):
         logger.error(f"Price tool failed: {e}")
         return {"status": "error", "message": str(e)}
 
+async def search_web(query: str):
+    """Searches the web for real-time information using DuckDuckGo."""
+    url = f"https://api.duckduckgo.com/?q={query}&format=json&no_html=1&skip_disambig=1"
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            res = await client.get(url)
+            data = res.json()
+            
+            # Extract Abstract or related results
+            answer = data.get("AbstractText", "")
+            if not answer and data.get("RelatedTopics"):
+                # Use first related topic snippet if abstract is empty
+                answer = data["RelatedTopics"][0].get("Text", "")
+            
+            if answer:
+                return {
+                    "status": "success",
+                    "query": query,
+                    "result": answer,
+                    "source": data.get("AbstractSource", "DuckDuckGo")
+                }
+            return {"status": "no_results", "message": "No direct answer found on the web."}
+    except Exception as e:
+        logger.error(f"Web search tool failed: {e}")
+        return {"status": "error", "message": str(e)}
+
 async def gateway_nanopayment(destination_blockchain: str, destination_address: str, amount: float, wallet_id: str):
     try:
         tx_hash = await circle_service.gateway_transfer(wallet_id, destination_blockchain, destination_address, amount)
@@ -372,6 +398,20 @@ class GeminiService:
                     "description": "Retrieves the main system wallet used by the orchestrator for payments.",
                     "parameters": {"type": "object", "properties": {}}
                 }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "search_web",
+                    "description": "Searches the internet for real-time information, news, and facts.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {"type": "string", "description": "The search query."}
+                        },
+                        "required": ["query"]
+                    }
+                }
             }
         ]
 
@@ -422,6 +462,8 @@ class GeminiService:
                             res = await get_agents_list()
                         elif func_name == "get_requester_wallet_info":
                             res = await get_requester_wallet_info()
+                        elif func_name == "search_web":
+                            res = await search_web(**func_args)
                         else:
                             res = {"status": "error", "message": "Unknown tool"}
                             
