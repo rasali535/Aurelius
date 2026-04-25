@@ -66,7 +66,7 @@ export default function TransactionFeed({ summary }: Props) {
                 </div>
               </div>
               <div className="tx-amount-side">
-                <div className="tx-val">${tx.amount_usdc.toFixed(4)}</div>
+                <div className="tx-val">${tx.amount_usdc.toFixed(6)}</div>
                 <div className="tx-currency">USDC</div>
               </div>
             </div>
