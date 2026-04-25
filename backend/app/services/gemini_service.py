@@ -271,6 +271,7 @@ class GeminiService:
                 if response.status_code == 200:
                     resp_json = response.json()
                     message = resp_json["choices"][0]["message"]
+                    
                     if message.get("tool_calls"):
                         tool_call = message["tool_calls"][0]
                         func_name = tool_call["function"]["name"]
@@ -289,10 +290,12 @@ class GeminiService:
                         elif func_name == "gateway_nanopayment":
                             res = await gateway_nanopayment(**func_args)
                         else:
-                            res = {"status": "error"}
+                            res = {"status": "error", "message": "Unknown tool"}
                             
                         return f"Tool Execution: {func_name} completed with result: {json.dumps(res)}"
-                    return message["content"]
+                    return message.get("content", "")
+                else:
+                    logger.error(f"AI/ML API Error ({response.status_code}): {response.text}")
         except Exception as e:
             logger.error(f"AI/ML API failed: {e}")
             
