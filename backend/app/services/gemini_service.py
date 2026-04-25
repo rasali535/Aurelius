@@ -326,45 +326,70 @@ class GeminiService:
         if not self.google_api_key:
             return "Vision capability requires GOOGLE_API_KEY."
 
+    async def analyze_multimodal_commerce(self, prompt: str, base64_image: str):
+        """Analyzes a document using Gemini via AI/ML API (primary) or Google Direct (fallback)."""
         if "," in base64_image:
             base64_image = base64_image.split(",")[1]
 
         try:
-            async with httpx.AsyncClient(timeout=90.0) as client:
-                # Upgrading to 2.0 and higher as requested
-                url = f"https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key={self.google_api_key}"
-                payload = {
-                    "contents": [{
-                        "parts": [
-                            {"text": prompt},
-                            {
-                                "inline_data": {
-                                    "mime_type": "image/jpeg",
-                                    "data": base64_image
-                                }
-                            }
-                        ]
-                    }]
+            # 1. Try AI/ML API (Primary Choice for 2.0 and Quota Stability)
+            if self.aiml_api_key:
+                url = f"{self.aiml_base_url}/chat/completions"
+                headers = {
+                    "Authorization": f"Bearer {self.aiml_api_key}",
+                    "Content-Type": "application/json"
                 }
-                resp = await client.post(url, json=payload)
-                if resp.status_code == 200:
-                    try:
+                payload = {
+                    "model": "google/gemini-2.0-flash",
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": prompt},
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": f"data:image/jpeg;base64,{base64_image}"
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                }
+                async with httpx.AsyncClient(timeout=90.0) as client:
+                    resp = await client.post(url, json=payload, headers=headers)
+                    if resp.status_code == 200:
+                        return resp.json()["choices"][0]["message"]["content"]
+                    else:
+                        logger.warning(f"AI/ML API Vision failed ({resp.status_code}): {resp.text}")
+            
+            # 2. Fallback to Google Direct
+            if self.google_api_key:
+                async with httpx.AsyncClient(timeout=90.0) as client:
+                    url = f"https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key={self.google_api_key}"
+                    payload = {
+                        "contents": [{
+                            "parts": [
+                                {"text": prompt},
+                                {
+                                    "inline_data": {
+                                        "mime_type": "image/jpeg",
+                                        "data": base64_image
+                                    }
+                                }
+                            ]
+                        }]
+                    }
+                    resp = await client.post(url, json=payload)
+                    if resp.status_code == 200:
                         return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
-                    except (KeyError, IndexError) as e:
-                        logger.error(f"Gemini 2.0 Response Parsing Error: {e}. Body: {resp.text}")
-                        return "Error parsing model response."
-                elif resp.status_code == 429:
-                    logger.error(f"Gemini 2.0 Quota Exceeded: {resp.text}")
-                    return "Error: Gemini API Quota Exceeded. Please check your billing/tier."
-                else:
-                    error_text = resp.text
-                    logger.error(f"Gemini 2.0 Vision failed ({resp.status_code}): {error_text}")
-                    if "API_KEY_INVALID" in error_text:
-                        return "Error: Invalid Google API Key."
-                    return f"Failed to analyze document (Status {resp.status_code})."
+                    else:
+                        logger.error(f"Google Direct Vision failed: {resp.text}")
+
+            return "Failed to analyze document. No valid API provider responded."
         except Exception as e:
-            logger.error(f"Vision error: {e}")
-            return str(e)
+            logger.error(f"Vision analysis error: {e}")
+            return f"Error: {str(e)}"
 
     async def _fallback(self, prompt: str):
         from app.services.featherless_service import featherless_service
