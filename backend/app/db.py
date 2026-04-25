@@ -259,6 +259,8 @@ _TABLES = [
     "config",
     "agents",
     "inference_logs",
+    "prompt_history",
+    "chat_sessions",
 ]
 
 
