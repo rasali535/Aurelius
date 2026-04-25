@@ -11,7 +11,7 @@ async def dashboard_summary():
         total_payments = await db.payment_events.count_documents({})
         
         payments = await db.payment_events.find(
-            {}, 
+            {"amount_usdc": {"$gt": 0}}, 
             {"_id": 1, "amount_usdc": 1, "status": 1, "tx_hash": 1, "settled_at": 1}
         ).sort("settled_at", -1).limit(20).to_list(length=20)
 
