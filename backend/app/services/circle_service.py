@@ -359,16 +359,17 @@ class CircleService:
         
         # Step 1: Approve
         print(f"Step 1/4: Approving {amount} USDC for TokenMessenger...")
-        await self.contract_execution(
+        approve_tx = await self.contract_execution(
             wallet_id=source_wallet_id,
-            contract_address=src["usdc"],
+            contract_address=src["usdc"].lower(),
             abi_signature="approve(address,uint256)",
-            abi_parameters=[src["token_messenger"], str(amount_raw)]
+            abi_parameters=[src["token_messenger"].lower(), str(amount_raw)]
         )
+        print(f"  Approval confirmed: {approve_tx}")
         
         # Add a small delay to ensure allowance is indexed on-chain
-        print("  Waiting 10s for allowance propagation...")
-        await asyncio.sleep(10)
+        print("  Waiting 15s for allowance propagation...")
+        await asyncio.sleep(15)
 
         # Step 2: DepositForBurn
         print("Step 2/4: Depositing for burn...")
@@ -377,11 +378,11 @@ class CircleService:
         
         burn_tx = await self.contract_execution(
             wallet_id=source_wallet_id,
-            contract_address=src["token_messenger"],
+            contract_address=src["token_messenger"].lower(),
             abi_signature="depositForBurn(uint256,uint32,bytes32,address)",
-            abi_parameters=[int(amount_raw), int(dst["domain"]), recipient_bytes32, src["usdc"]]
+            abi_parameters=[int(amount_raw), int(dst["domain"]), recipient_bytes32, src["usdc"].lower()]
         )
-        print(f"Burn successful: {burn_tx}")
+        print(f"  Burn successful: {burn_tx}")
 
         # Step 3: Get Attestation
         print("Step 3/4: Polling for CCTP attestation (this may take 1-2 mins)...")
