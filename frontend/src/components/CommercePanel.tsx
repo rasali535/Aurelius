@@ -22,19 +22,20 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
 
   const handleVisionSettlement = async () => {
     if (!visionImage) return;
-    setLoading(true);
-    setVisionStatus("ANALYZING_DOCUMENT_VIA_GEMINI_VISION...");
+    const taskId = `vision_${Math.random().toString(36).slice(2, 6)}`;
+    setVisionStatus(`[${taskId}] ANALYZING_DOCUMENT_VIA_GEMINI_VISION...`);
+    
     try {
       const base64 = visionImage.split(',')[1];
       const res = await api.post("/commerce/multimodal/settle", { image: base64 });
-      setVisionStatus(`ANALYSIS: ${res.data.analysis}\n\nDECISION: ${JSON.stringify(res.data.decision)}`);
-      if (res.data.tx_hash) {
-        setStatus({ type: "success", msg: `MULTIMODAL_SETTLEMENT_SUCCESS! TX: ${res.data.tx_hash.slice(0, 20)}...` });
-      }
+      
+      setVisionStatus(prev => `[${taskId}] PROCESSED: ${res.data.message}\n\n` + prev);
+      setStatus({ 
+        type: "success", 
+        msg: `[${taskId}] VISION_ANALYSIS_STARTED! Task ID: ${res.data.task_id}` 
+      });
     } catch (err: any) {
-      setVisionStatus(`FAILED: ${err.response?.data?.detail || "VISION_ERROR"}`);
-    } finally {
-      setLoading(false);
+      setVisionStatus(prev => `[${taskId}] FAILED: ${err.response?.data?.detail || "VISION_ERROR"}\n\n` + prev);
     }
   };
   
@@ -60,8 +61,11 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
   const [status, setStatus] = useState<{ type: "success" | "error" | "none", msg: string }>({ type: "none", msg: "" });
 
   const handleSwap = async () => {
-    setLoading(true);
-    setStatus({ type: "none", msg: "INITIATING_DEX_SWAP..." });
+    const taskId = `swap_${Math.random().toString(36).slice(2, 6)}`;
+    setStatus({ 
+      type: "none", 
+      msg: `[${taskId}] INITIATING_DEX_SWAP...` 
+    });
     
     try {
       const res = await api.post("/commerce/swap", {
@@ -72,21 +76,22 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
       
       setStatus({ 
         type: "success", 
-        msg: `SWAP_COMPLETE: +${res.data.received_amount.toFixed(4)} ${toToken}` 
+        msg: `[${taskId}] SWAP_COMPLETE: +${res.data.received_amount.toFixed(4)} ${toToken}` 
       });
     } catch (err: any) {
       setStatus({ 
         type: "error", 
-        msg: `FAILED: ${err.response?.data?.detail || "SWAP_REJECTED"}` 
+        msg: `[${taskId}] FAILED: ${err.response?.data?.detail || "SWAP_REJECTED"}` 
       });
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleBridge = async () => {
-    setLoading(true);
-    setStatus({ type: "none", msg: "INITIATING_CCTP_BRIDGE (EXPECT 2 MINS)..." });
+    const localId = `bridge_${Math.random().toString(36).slice(2, 6)}`;
+    setStatus({ 
+      type: "none", 
+      msg: `[${localId}] INITIATING_CCTP_BRIDGE... (Processing in background)` 
+    });
     
     try {
       const res = await api.post("/commerce/bridge", {
@@ -98,15 +103,13 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
       
       setStatus({ 
         type: "success", 
-        msg: `BRIDGE_COMPLETE! DEST_TX: ${res.data.destTx?.slice(0, 20)}...` 
+        msg: `[${localId}] BRIDGE_STARTED: Task ID ${res.data.task_id}. Check Transaction Feed for completion.` 
       });
     } catch (err: any) {
       setStatus({ 
         type: "error", 
-        msg: `BRIDGE_FAILED: ${err.response?.data?.detail || "CCTP_ERROR"}` 
+        msg: `[${localId}] BRIDGE_FAILED: ${err.response?.data?.detail || "CCTP_ERROR"}` 
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -274,10 +277,9 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
           <button 
             className="cyber-btn primary-glow" 
             onClick={handleSwap}
-            disabled={loading}
             style={{ marginTop: '15px', width: '100%', fontWeight: 'bold' }}
           >
-            {loading ? "ROUTING_TRANSACTION..." : "EXECUTE_SWAP"}
+            EXECUTE_SWAP
           </button>
         </div>
       )}
@@ -338,10 +340,9 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
           <button 
             className="cyber-btn secondary-glow" 
             onClick={handleBridge}
-            disabled={loading}
             style={{ marginTop: '15px', width: '100%', fontWeight: 'bold' }}
           >
-            {loading ? "BRIDGING_ASSETS..." : "START_BRIDGE_TRANSFER"}
+            START_BRIDGE_TRANSFER
           </button>
         </div>
       )}
@@ -361,7 +362,7 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
                 className="dest-address-input"
                 style={{ fontSize: '0.65rem' }}
               />
-              <button className="cyber-btn" onClick={handleRegisterAgent} disabled={loading} style={{ fontSize: '0.6rem', padding: '5px 10px' }}>
+              <button className="cyber-btn" onClick={handleRegisterAgent} style={{ fontSize: '0.6rem', padding: '5px 10px' }}>
                 REGISTER
               </button>
             </div>
@@ -384,7 +385,7 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
                 <input type="text" value={jobProvider} onChange={(e) => setJobProvider(e.target.value)} className="dest-address-input" style={{ flex: 1 }} placeholder="Provider" />
                 <input type="text" value={jobEvaluator} onChange={(e) => setJobEvaluator(e.target.value)} className="dest-address-input" style={{ flex: 1 }} placeholder="Evaluator" />
               </div>
-              <button className="cyber-btn primary-glow" onClick={handleCreateJob} disabled={loading} style={{ width: '100%', fontSize: '0.7rem' }}>
+              <button className="cyber-btn primary-glow" onClick={handleCreateJob} style={{ width: '100%', fontSize: '0.7rem' }}>
                 CREATE_ESCROW_JOB
               </button>
             </div>
@@ -404,7 +405,7 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
                 style={{ fontSize: '1rem' }}
               />
               <span className="token-label">USDC</span>
-              <button className="cyber-btn secondary-glow" onClick={handleGatewayTransfer} disabled={loading}>
+              <button className="cyber-btn secondary-glow" onClick={handleGatewayTransfer}>
                 PAY
               </button>
             </div>
@@ -416,7 +417,6 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
           <button 
             className="cyber-btn" 
             onClick={handleStressTest} 
-            disabled={loading}
             style={{ 
               marginTop: '10px', 
               width: '100%', 
@@ -426,7 +426,7 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
               fontSize: '0.7rem'
             }}
           >
-            {loading ? "PROCESSING_BULK_TX..." : "🚀 GENERATE_50_TX_PROOF (HACKATHON_DEMO)"}
+            🚀 GENERATE_50_TX_PROOF (HACKATHON_DEMO)
           </button>
         </div>
       )}
@@ -466,10 +466,10 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
           <button 
             className="cyber-btn primary-glow" 
             onClick={handleVisionSettlement} 
-            disabled={loading || !visionImage}
+            disabled={!visionImage}
             style={{ width: '100%' }}
           >
-            {loading ? "GEMINI_IS_THINKING..." : "ANALYZE_&_SETTLE_ON_ARC"}
+            ANALYZE_&_SETTLE_ON_ARC
           </button>
 
           {visionStatus && (

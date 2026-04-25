@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from app.services.circle_service import circle_service
 from app.db import db
@@ -127,48 +127,77 @@ class BridgeRequest(BaseModel):
     destination_address: str
 
 @router.post("/bridge")
-async def execute_bridge(payload: BridgeRequest):
+async def execute_bridge(payload: BridgeRequest, background_tasks: BackgroundTasks):
     """
-    Executes a cross-chain USDC transfer using CCTP.
+    Executes a cross-chain USDC transfer using CCTP in the background.
     """
     try:
-        # Get the default requester wallet
         requester = await db.config.find_one({"_id": "requester_wallet"})
         if not requester:
             wallets = await circle_service.list_wallets()
             if wallets:
-                requester = {
-                    "wallet_id": wallets[0]["id"],
-                    "wallet_address": wallets[0]["address"]
-                }
+                requester = {"wallet_id": wallets[0]["id"]}
             else:
                 raise Exception("No requester wallet configured.")
 
+        # Create a persistent record for the bridge task
+        task_id = f"bridge_{uuid4().hex[:8]}"
+        payment_event = {
+            "_id": generate_id("pay"),
+            "validation_request_id": task_id,
+            "amount_usdc": payload.amount,
+            "status": "processing",
+            "tx_hash": "pending",
+            "x402_status": "cctp_bridge",
+            "erc8004_trust_score": 100,
+            "created_at": utc_now(),
+        }
+        await db.payment_events.insert_one(payment_event)
+
+        # Offload the heavy lifting to the background
+        background_tasks.add_task(
+            run_bridge_background,
+            payment_event["_id"],
+            requester["wallet_id"],
+            payload
+        )
+        
+        return {
+            "status": "processing",
+            "task_id": task_id,
+            "message": "CCTP Bridge initiated in background. Progress will appear in the transaction feed."
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+async def run_bridge_background(event_id: str, wallet_id: str, payload: BridgeRequest):
+    """Background worker for CCTP bridge."""
+    try:
         result = await circle_service.bridge_usdc(
-            wallet_id=requester["wallet_id"],
+            wallet_id=wallet_id,
             amount=payload.amount,
             source_blockchain=payload.source_blockchain,
             destination_blockchain=payload.destination_blockchain,
             destination_address=payload.destination_address
         )
         
-        # Record bridge as a payment event for throughput metrics
-        payment_event = {
-            "_id": generate_id("pay"),
-            "validation_request_id": f"bridge_{uuid4().hex[:8]}",
-            "amount_usdc": payload.amount,
-            "status": "settled",
-            "tx_hash": result.get("destTx") or result.get("sourceTx", ""),
-            "x402_status": "cctp_bridge",
-            "erc8004_trust_score": 100,
-            "created_at": utc_now(),
-            "settled_at": utc_now()
-        }
-        await db.payment_events.insert_one(payment_event)
-        
-        return result
+        # Update the event record on completion
+        await db.payment_events.update_one(
+            {"_id": event_id},
+            {
+                "$set": {
+                    "status": "settled",
+                    "tx_hash": result.get("destTx") or result.get("sourceTx", "completed"),
+                    "settled_at": utc_now()
+                }
+            }
+        )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"Background Bridge Error: {e}")
+        await db.payment_events.update_one(
+            {"_id": event_id},
+            {"$set": {"status": "failed", "error": str(e)}}
+        )
 
 class GatewayTransferRequest(BaseModel):
     destination_blockchain: str
@@ -263,11 +292,39 @@ class MultimodalSettleRequest(BaseModel):
     prompt: Optional[str] = "Analyze this commerce document and extract the vendor address and amount to be settled in USDC."
 
 @router.post("/multimodal/settle")
-async def multimodal_settle(payload: MultimodalSettleRequest):
+async def multimodal_settle(payload: MultimodalSettleRequest, background_tasks: BackgroundTasks):
     """
-    Uses Gemini Vision to analyze an image (invoice/receipt) and initiates a settlement.
-    Always executes a demo nanopayment to record throughput, regardless of AI decision.
+    Uses Gemini Vision to analyze an image and initiates a settlement in the background.
     """
+    task_id = f"vision_{uuid4().hex[:8]}"
+    
+    # Create initial record
+    payment_event = {
+        "_id": generate_id("pay"),
+        "validation_request_id": task_id,
+        "amount_usdc": 0.0, # Will be updated by AI
+        "status": "processing",
+        "tx_hash": "pending",
+        "x402_status": "multimodal_settlement",
+        "erc8004_trust_score": 98,
+        "created_at": utc_now(),
+    }
+    await db.payment_events.insert_one(payment_event)
+
+    background_tasks.add_task(
+        run_vision_settle_background,
+        payment_event["_id"],
+        payload
+    )
+
+    return {
+        "status": "processing",
+        "task_id": task_id,
+        "message": "AI Analysis initiated. Results will appear in the transaction feed shortly."
+    }
+
+async def run_vision_settle_background(event_id: str, payload: MultimodalSettleRequest):
+    """Background worker for vision settlement."""
     import json
     import re
 
@@ -280,11 +337,7 @@ async def multimodal_settle(payload: MultimodalSettleRequest):
             base64_image=payload.image,
             prompt=payload.prompt
         )
-    except Exception as vision_err:
-        print(f"Gemini Vision error (non-fatal): {vision_err}")
-        analysis = f"Vision model error: {vision_err}"
-
-    try:
+        
         # 2. Extract structured settlement decision
         reasoning_prompt = (
             f"Based on this image analysis: '{analysis}', determine if a USDC settlement is required. "
@@ -295,13 +348,8 @@ async def multimodal_settle(payload: MultimodalSettleRequest):
         match = re.search(r'\{.*\}', decision_raw, re.DOTALL)
         if match:
             decision = json.loads(match.group())
-    except Exception as reasoning_err:
-        print(f"Reasoning step error (non-fatal): {reasoning_err}")
-        # Force a demo settlement if reasoning fails
-        decision = {"settle": True, "amount": 0.001, "address": "0x3E5A42D19a584093952fA6d7667C82D7068560F4", "reason": "demo"}
-
-    # 3. Always execute a gateway demo payment to show live throughput
-    try:
+            
+        # 3. Execute payment
         requester = await db.config.find_one({"_id": "requester_wallet"})
         if not requester:
             wallets = await circle_service.list_wallets()
@@ -310,39 +358,31 @@ async def multimodal_settle(payload: MultimodalSettleRequest):
         settle_amount = float(decision.get("amount") or 0.001)
         settle_address = decision.get("address") or "0x3E5A42D19a584093952fA6d7667C82D7068560F4"
 
-        if requester:
+        tx_hash = "sim_skipped"
+        if decision.get("settle") and requester:
             tx_hash = await circle_service.gateway_transfer(
                 wallet_id=requester["wallet_id"],
                 destination_blockchain="ARC-TESTNET",
                 destination_address=settle_address,
                 amount=settle_amount
             )
-        else:
-            tx_hash = f"0x_sim_{uuid4().hex}"
 
-        # Record as payment event for dashboard throughput
-        payment_event = {
-            "_id": generate_id("pay"),
-            "validation_request_id": f"vision_{uuid4().hex[:8]}",
-            "amount_usdc": settle_amount,
-            "status": "settled",
-            "tx_hash": tx_hash,
-            "x402_status": "multimodal_settlement",
-            "erc8004_trust_score": 98,
-            "created_at": utc_now(),
-            "settled_at": utc_now()
-        }
-        await db.payment_events.insert_one(payment_event)
-
-        return {
-            "analysis": analysis,
-            "decision": decision,
-            "tx_hash": tx_hash,
-            "status": "Multimodal Settlement Complete"
-        }
-    except Exception as settle_err:
-        # Return partial success — analysis done, settlement failed
-        raise HTTPException(
-            status_code=500,
-            detail=f"Settlement execution failed: {settle_err}. Analysis: {analysis[:200]}"
+        # Update event record
+        await db.payment_events.update_one(
+            {"_id": event_id},
+            {
+                "$set": {
+                    "status": "settled" if decision.get("settle") else "skipped",
+                    "amount_usdc": settle_amount if decision.get("settle") else 0.0,
+                    "tx_hash": tx_hash,
+                    "analysis_summary": analysis[:500],
+                    "settled_at": utc_now()
+                }
+            }
+        )
+    except Exception as e:
+        print(f"Background Vision Error: {e}")
+        await db.payment_events.update_one(
+            {"_id": event_id},
+            {"$set": {"status": "failed", "error": str(e)}}
         )
