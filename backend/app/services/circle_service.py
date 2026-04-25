@@ -56,16 +56,26 @@ class CircleService:
         if not self.entity_secret or not self.public_key_pem:
             return settings.CIRCLE_ENTITY_SECRET_CIPHERTEXT
             
-        pub_key = serialization.load_pem_public_key(self.public_key_pem.encode())
-        ciphertext = pub_key.encrypt(
-            bytes.fromhex(self.entity_secret),
-            padding.OAEP(
-                mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                algorithm=hashes.SHA256(),
-                label=None
+        pem_content = self.public_key_pem.strip()
+        # If the key is just the base64 part, wrap it in PEM headers
+        if "-----BEGIN PUBLIC KEY-----" not in pem_content:
+            pem_content = f"-----BEGIN PUBLIC KEY-----\n{pem_content}\n-----END PUBLIC KEY-----"
+            
+        try:
+            pub_key = serialization.load_pem_public_key(pem_content.encode())
+            ciphertext = pub_key.encrypt(
+                bytes.fromhex(self.entity_secret),
+                padding.OAEP(
+                    mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                    algorithm=hashes.SHA256(),
+                    label=None
+                )
             )
-        )
-        return base64.b64encode(ciphertext).decode()
+            return base64.b64encode(ciphertext).decode()
+        except Exception as e:
+            print(f"FAILED to load Circle Public Key: {e}")
+            # Fallback to the pre-configured ciphertext if available
+            return settings.CIRCLE_ENTITY_SECRET_CIPHERTEXT
 
     async def create_wallet_set(self, name: str):
         url = f"{self.base_url}/v1/w3s/developer/walletSets"

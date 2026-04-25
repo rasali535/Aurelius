@@ -63,14 +63,20 @@ export default function TransactionFeed({ summary, isLive }: Props) {
                   </span>
                 </div>
                 <div className="tx-hash-row">
-                   <a 
-                    href={`https://testnet.arcscan.app/tx/${tx.tx_hash}`} 
-                    target="_blank" 
-                    rel="noreferrer"
-                    className="arc-link"
-                  >
-                    {tx.tx_hash ? `${tx.tx_hash.slice(0, 18)}...` : "PENDING_ON_CHAIN"}
-                  </a>
+                   {tx.tx_hash && tx.tx_hash !== "null" && tx.tx_hash.startsWith("0x") ? (
+                     <a 
+                      href={`https://testnet.arcscan.app/tx/${tx.tx_hash}`} 
+                      target="_blank" 
+                      rel="noreferrer"
+                      className="arc-link"
+                    >
+                      {`${tx.tx_hash.slice(0, 18)}...`}
+                    </a>
+                   ) : (
+                     <span className="arc-link" style={{ opacity: 0.5, border: 'none' }}>
+                       {tx.tx_hash && tx.tx_hash.includes("FAILED") ? "TX_FAILED" : "PENDING_ON_CHAIN"}
+                     </span>
+                   )}
                 </div>
               </div>
               <div className="tx-amount-side">
