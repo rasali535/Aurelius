@@ -342,7 +342,7 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
             {loading ? "BRIDGING_ASSETS..." : "START_BRIDGE_TRANSFER"}
           </button>
         </div>
-      ) : (
+      ) : activeTab === 'agents' ? (
         <div className="agents-container" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {/* Agent Identity Section */}
           <div className="swap-box">
