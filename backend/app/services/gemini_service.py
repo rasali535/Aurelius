@@ -331,7 +331,8 @@ class GeminiService:
 
         try:
             async with httpx.AsyncClient(timeout=90.0) as client:
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={self.google_api_key}"
+                # Upgrading to 2.0 and higher as requested
+                url = f"https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key={self.google_api_key}"
                 payload = {
                     "contents": [{
                         "parts": [
@@ -350,11 +351,14 @@ class GeminiService:
                     try:
                         return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
                     except (KeyError, IndexError) as e:
-                        logger.error(f"Gemini Pro Response Parsing Error: {e}. Body: {resp.text}")
+                        logger.error(f"Gemini 2.0 Response Parsing Error: {e}. Body: {resp.text}")
                         return "Error parsing model response."
+                elif resp.status_code == 429:
+                    logger.error(f"Gemini 2.0 Quota Exceeded: {resp.text}")
+                    return "Error: Gemini API Quota Exceeded. Please check your billing/tier."
                 else:
                     error_text = resp.text
-                    logger.error(f"Gemini Pro Vision failed ({resp.status_code}): {error_text}")
+                    logger.error(f"Gemini 2.0 Vision failed ({resp.status_code}): {error_text}")
                     if "API_KEY_INVALID" in error_text:
                         return "Error: Invalid Google API Key."
                     return f"Failed to analyze document (Status {resp.status_code})."
