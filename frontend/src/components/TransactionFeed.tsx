@@ -66,7 +66,9 @@ export default function TransactionFeed({ summary }: Props) {
                 </div>
               </div>
               <div className="tx-amount-side">
-                <div className="tx-val">${tx.amount_usdc.toFixed(6)}</div>
+                <div className="tx-val">
+                  ${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 }).format(tx.amount_usdc)}
+                </div>
                 <div className="tx-currency">USDC</div>
               </div>
             </div>
