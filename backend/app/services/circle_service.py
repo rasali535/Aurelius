@@ -56,12 +56,18 @@ class CircleService:
         if not self.entity_secret or not self.public_key_pem:
             return settings.CIRCLE_ENTITY_SECRET_CIPHERTEXT
             
-        pem_content = self.public_key_pem.strip()
-        # If the key is just the base64 part, wrap it in PEM headers
+        # Normalize the PEM content: strip and replace literal '\n' with actual newlines
+        pem_content = self.public_key_pem.strip().replace("\\n", "\n")
+        
+        # Ensure standard PEM headers are present
         if "-----BEGIN PUBLIC KEY-----" not in pem_content:
-            pem_content = f"-----BEGIN PUBLIC KEY-----\n{pem_content}\n-----END PUBLIC KEY-----"
+            # Check if it's already base64-ish or missing headers
+            header = "-----BEGIN PUBLIC KEY-----\n"
+            footer = "\n-----END PUBLIC KEY-----"
+            pem_content = f"{header}{pem_content}{footer}"
             
         try:
+            # Cryptography's load_pem_public_key expects the full PEM block
             pub_key = serialization.load_pem_public_key(pem_content.encode())
             ciphertext = pub_key.encrypt(
                 bytes.fromhex(self.entity_secret),
@@ -73,8 +79,9 @@ class CircleService:
             )
             return base64.b64encode(ciphertext).decode()
         except Exception as e:
-            print(f"FAILED to load Circle Public Key: {e}")
-            # Fallback to the pre-configured ciphertext if available
+            # Log the error but don't crash - fallback to the static ciphertext
+            print(f"CRITICAL: Failed to load Circle Public Key: {e}")
+            # If we reach here, either the key is truly invalid or the fallback is our only hope
             return settings.CIRCLE_ENTITY_SECRET_CIPHERTEXT
 
     async def create_wallet_set(self, name: str):
