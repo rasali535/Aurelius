@@ -4,6 +4,7 @@ import logging
 from app.config import settings
 from app.services.circle_service import circle_service
 from app.services.x402_service import x402_service
+from app.db import db
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +116,63 @@ async def gateway_nanopayment(destination_blockchain: str, destination_address: 
         return {"status": "success", "tx_hash": tx_hash}
     except Exception as e:
         logger.error(f"Gateway tool failed: {e}")
+        return {"status": "error", "message": str(e)}
+
+async def get_dashboard_summary():
+    """Returns the global metrics for the Aurelius platform."""
+    try:
+        total_prompt_runs = await db.prompt_runs.count_documents({})
+        total_validations = await db.validation_requests.count_documents({})
+        
+        # Aggregate settled payments
+        agg = db.payment_events.aggregate([
+            {"$match": {"status": "settled"}},
+            {"$group": {"_id": None, "total_spend": {"$sum": "$amount_usdc"}, "count": {"$sum": 1}}}
+        ])
+        res = await agg.to_list(length=1)
+        stats = res[0] if res else {"total_spend": 0, "count": 0}
+        
+        return {
+            "total_runs": total_prompt_runs,
+            "total_validations": total_validations,
+            "total_settled_payments": stats.get("count", 0),
+            "total_spend_usdc": round(stats.get("total_spend", 0), 4)
+        }
+    except Exception as e:
+        logger.error(f"Dashboard summary tool failed: {e}")
+        return {"status": "error", "message": str(e)}
+
+async def get_agents_list():
+    """Retrieves the list of active validator agents and their current status."""
+    try:
+        agents = await db.agents.find().to_list(length=50)
+        # Simplify for AI context
+        agent_list = []
+        for a in agents:
+            agent_list.append({
+                "name": a.get("name"),
+                "type": a.get("type"),
+                "status": "online",
+                "price_usdc": a.get("price_usdc", 0.0),
+                "reputation": a.get("reputation_score", 0)
+            })
+        return {"agents": agent_list}
+    except Exception as e:
+        logger.error(f"Agents list tool failed: {e}")
+        return {"status": "error", "message": str(e)}
+
+async def get_requester_wallet_info():
+    """Retrieves the Requester Agent's wallet ID and address."""
+    try:
+        wallet = await db.config.find_one({"_id": "requester_wallet"})
+        if not wallet:
+            return {"status": "error", "message": "Requester wallet not initialized."}
+        return {
+            "wallet_id": wallet.get("wallet_id"),
+            "wallet_address": wallet.get("wallet_address")
+        }
+    except Exception as e:
+        logger.error(f"Wallet info tool failed: {e}")
         return {"status": "error", "message": str(e)}
 
 class GeminiService:
@@ -290,6 +348,30 @@ class GeminiService:
                         "required": ["symbol"]
                     }
                 }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_dashboard_summary",
+                    "description": "Provides global statistics about the Aurelius platform, including total runs and spend.",
+                    "parameters": {"type": "object", "properties": {}}
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_agents_list",
+                    "description": "Lists all active AI validator agents, their services, and their prices.",
+                    "parameters": {"type": "object", "properties": {}}
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_requester_wallet_info",
+                    "description": "Retrieves the main system wallet used by the orchestrator for payments.",
+                    "parameters": {"type": "object", "properties": {}}
+                }
             }
         ]
 
@@ -334,6 +416,12 @@ class GeminiService:
                             res = await gateway_nanopayment(**func_args)
                         elif func_name == "get_crypto_price":
                             res = await get_crypto_price(**func_args)
+                        elif func_name == "get_dashboard_summary":
+                            res = await get_dashboard_summary()
+                        elif func_name == "get_agents_list":
+                            res = await get_agents_list()
+                        elif func_name == "get_requester_wallet_info":
+                            res = await get_requester_wallet_info()
                         else:
                             res = {"status": "error", "message": "Unknown tool"}
                             
