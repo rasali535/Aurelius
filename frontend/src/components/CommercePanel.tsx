@@ -7,7 +7,6 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
 
   // Vision State
   const [visionImage, setVisionImage] = useState<string | null>(null);
-  const [visionStatus, setVisionStatus] = useState<string>("");
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -22,20 +21,16 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
 
   const handleVisionSettlement = async () => {
     if (!visionImage) return;
-    const taskId = `vision_${Math.random().toString(36).slice(2, 6)}`;
-    setVisionStatus(`[${taskId}] ANALYZING_DOCUMENT_VIA_GEMINI_VISION...`);
+    const taskId = `VISION_${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    addLog(taskId, "pending", "ANALYZING_DOCUMENT_VIA_GEMINI_VISION...");
     
     try {
       const base64 = visionImage.split(',')[1];
       const res = await api.post("/commerce/multimodal/settle", { image: base64 });
       
-      setVisionStatus(prev => `[${taskId}] PROCESSED: ${res.data.message}\n\n` + prev);
-      setStatus({ 
-        type: "success", 
-        msg: `[${taskId}] VISION_ANALYSIS_STARTED! Task ID: ${res.data.task_id}` 
-      });
+      updateLog(taskId, "success", `VISION_PROCESSED: ${res.data.message}`);
     } catch (err: any) {
-      setVisionStatus(prev => `[${taskId}] FAILED: ${err.response?.data?.detail || "VISION_ERROR"}\n\n` + prev);
+      updateLog(taskId, "error", `VISION_FAILED: ${err.response?.data?.detail || "ERROR"}`);
     }
   };
   
@@ -56,16 +51,20 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
   const [jobEvaluator, setJobEvaluator] = useState("0x5B38Da6a701c568545dCfcB03FcB875f56beddC4"); // Demo Evaluator
   const [jobDescription, setJobDescription] = useState("Analyze sentiment for Arc Network data.");
   const [gatewayAmount, setGatewayAmount] = useState("0.001");
+  const [tasks, setTasks] = useState<{ id: string, type: "success" | "error" | "pending", msg: string, timestamp: string }[]>([]);
 
-  const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<{ type: "success" | "error" | "none", msg: string }>({ type: "none", msg: "" });
+  const addLog = (id: string, type: "success" | "error" | "pending", msg: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setTasks(prev => [{ id, type, msg, timestamp }, ...prev].slice(0, 50));
+  };
+
+  const updateLog = (id: string, type: "success" | "error" | "pending", msg: string) => {
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, type, msg } : t));
+  };
 
   const handleSwap = async () => {
-    const taskId = `swap_${Math.random().toString(36).slice(2, 6)}`;
-    setStatus({ 
-      type: "none", 
-      msg: `[${taskId}] INITIATING_DEX_SWAP...` 
-    });
+    const taskId = `SWAP_${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    addLog(taskId, "pending", `INITIATING_DEX_SWAP: ${swapAmount} ${fromToken} → ${toToken}`);
     
     try {
       const res = await api.post("/commerce/swap", {
@@ -74,24 +73,15 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
         amount: parseFloat(swapAmount),
       });
       
-      setStatus({ 
-        type: "success", 
-        msg: `[${taskId}] SWAP_COMPLETE: +${res.data.received_amount.toFixed(4)} ${toToken}` 
-      });
+      updateLog(taskId, "success", `SWAP_COMPLETE: +${res.data.received_amount.toFixed(4)} ${toToken}`);
     } catch (err: any) {
-      setStatus({ 
-        type: "error", 
-        msg: `[${taskId}] FAILED: ${err.response?.data?.detail || "SWAP_REJECTED"}` 
-      });
+      updateLog(taskId, "error", `FAILED: ${err.response?.data?.detail || "SWAP_REJECTED"}`);
     }
   };
 
   const handleBridge = async () => {
-    const localId = `bridge_${Math.random().toString(36).slice(2, 6)}`;
-    setStatus({ 
-      type: "none", 
-      msg: `[${localId}] INITIATING_CCTP_BRIDGE... (Processing in background)` 
-    });
+    const localId = `BRIDGE_${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    addLog(localId, "pending", `INITIATING_CCTP_BRIDGE: ${bridgeAmount} USDC to ${destChain}`);
     
     try {
       const res = await api.post("/commerce/bridge", {
@@ -101,88 +91,73 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
         destination_address: destAddress || summary?.wallet_address,
       });
       
-      setStatus({ 
-        type: "success", 
-        msg: `[${localId}] BRIDGE_STARTED: Task ID ${res.data.task_id}. Check Transaction Feed for completion.` 
-      });
+      updateLog(localId, "success", `BRIDGE_STARTED: Task ID ${res.data.task_id}. Processing in background...`);
     } catch (err: any) {
-      setStatus({ 
-        type: "error", 
-        msg: `[${localId}] BRIDGE_FAILED: ${err.response?.data?.detail || "CCTP_ERROR"}` 
-      });
+      updateLog(localId, "error", `BRIDGE_FAILED: ${err.response?.data?.detail || "CCTP_ERROR"}`);
     }
   };
 
   const handleRegisterAgent = async () => {
-    setLoading(true);
-    setStatus({ type: "none", msg: "REGISTERING_AGENT_IDENTITY..." });
+    const taskId = `AGENT_${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    addLog(taskId, "pending", "REGISTERING_AGENT_IDENTITY...");
     try {
       const res = await api.post("/commerce/agent/register", { metadata_uri: agentMetadata });
-      setStatus({ type: "success", msg: `AGENT_REGISTERED! TX: ${res.data.tx_hash?.slice(0, 20)}...` });
+      updateLog(taskId, "success", `AGENT_REGISTERED! TX: ${res.data.tx_hash?.slice(0, 16)}...`);
     } catch (err: any) {
-      setStatus({ type: "error", msg: `REGISTRATION_FAILED: ${err.response?.data?.detail}` });
-    } finally {
-      setLoading(false);
+      updateLog(taskId, "error", `REGISTRATION_FAILED: ${err.response?.data?.detail}`);
     }
   };
 
   const handleCreateJob = async () => {
-    setLoading(true);
-    setStatus({ type: "none", msg: "CREATING_AGENTIC_JOB..." });
+    const taskId = `JOB_${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    addLog(taskId, "pending", "CREATING_AGENTIC_JOB...");
     try {
       const res = await api.post("/commerce/job/create", { 
         provider: jobProvider, 
         evaluator: jobEvaluator, 
         description: jobDescription 
       });
-      setStatus({ type: "success", msg: `JOB_CREATED! TX: ${res.data.tx_hash?.slice(0, 20)}...` });
+      updateLog(taskId, "success", `JOB_CREATED! TX: ${res.data.tx_hash?.slice(0, 16)}...`);
     } catch (err: any) {
-      setStatus({ type: "error", msg: `JOB_FAILED: ${err.response?.data?.detail}` });
-    } finally {
-      setLoading(false);
+      updateLog(taskId, "error", `JOB_FAILED: ${err.response?.data?.detail}`);
     }
   };
 
   const handleGatewayTransfer = async () => {
-    setLoading(true);
-    setStatus({ type: "none", msg: "EXECUTING_NANOPAYMENT..." });
+    const taskId = `PAY_${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    addLog(taskId, "pending", `EXECUTING_NANOPAYMENT: ${gatewayAmount} USDC`);
     try {
       const res = await api.post("/commerce/gateway/transfer", {
         destination_blockchain: "ETH-SEPOLIA",
         destination_address: summary?.wallet_address,
         amount: parseFloat(gatewayAmount)
       });
-      setStatus({ type: "success", msg: `NANOPAYMENT_COMPLETE! TX: ${res.data.tx_hash?.slice(0, 20)}...` });
+      updateLog(taskId, "success", `NANOPAYMENT_COMPLETE! TX: ${res.data.tx_hash?.slice(0, 16)}...`);
     } catch (err: any) {
-      setStatus({ type: "error", msg: `GATEWAY_ERROR: ${err.response?.data?.detail}` });
-    } finally {
-      setLoading(false);
+      updateLog(taskId, "error", `GATEWAY_ERROR: ${err.response?.data?.detail}`);
     }
   };
 
   const handleStressTest = async () => {
-    setLoading(true);
-    setStatus({ type: "none", msg: "GENERATING_50_ONCHAIN_TRANSACTIONS..." });
+    const testId = `STRESS_${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    addLog(testId, "pending", "GENERATING_50_ONCHAIN_TRANSACTIONS...");
     
     let successCount = 0;
     for (let i = 0; i < 50; i++) {
       try {
-        // We use the manual payment endpoint with sub-cent amounts to simulate high frequency
         await api.post("/commerce/manual-payment", {
-          destination_wallet_id: "0x3E5A42D19a584093952fA6d7667C82D7068560F4", // Demo Provider
+          destination_wallet_id: "0x3E5A42D19a584093952fA6d7667C82D7068560F4",
           amount: 0.0001
         });
         successCount++;
-        setStatus({ type: "none", msg: `PROCESSED: ${successCount}/50 TRANSACTIONS...` });
+        updateLog(testId, "pending", `PROCESSED: ${successCount}/50 TRANSACTIONS...`);
       } catch (err) {
         console.error("Stress test tx failed", err);
       }
-      // Small delay to prevent rate limits but stay high frequency
-      await new Promise(r => setTimeout(r, 200));
+      await new Promise(r => setTimeout(r, 100));
     }
     
-    setStatus({ type: "success", msg: `ECONOMY_STRESS_TEST_COMPLETE: 50 TXs SETTLED` });
-    setLoading(false);
+    updateLog(testId, "success", `ECONOMY_STRESS_TEST_COMPLETE: 50 TXs SETTLED`);
   };
 
   const exchangeRate = fromToken === "USDC" ? "0.00042" : "2380.00";
@@ -472,19 +447,9 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
             ANALYZE_&_SETTLE_ON_ARC
           </button>
 
-          {visionStatus && (
-            <div className="vision-results" style={{ 
-              background: 'rgba(0, 0, 0, 0.3)', 
-              padding: '10px', 
-              borderRadius: '4px', 
-              fontSize: '0.65rem', 
-              color: 'var(--primary)',
-              whiteSpace: 'pre-wrap',
-              maxHeight: '150px',
-              overflowY: 'auto',
-              fontFamily: 'var(--terminal-font)'
-            }}>
-              {visionStatus}
+          {visionImage && (
+            <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)' }}>
+              • Image loaded. Ready for analysis.
             </div>
           )}
           
@@ -495,15 +460,19 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
         </div>
       )}
 
-      <div style={{ minHeight: '60px', marginTop: '15px' }}>
-        {status.type !== "none" && (
-          <div className={`status-box ${status.type}`} style={{ margin: 0 }}>
-            <div className="status-header">
-              {status.type === "success" ? "✓ OPERATION_COMPLETE" : "⚠ SYSTEM_ERROR"}
+      <div className="task-orchestrator-log">
+        <div className="log-header">TASK_ORCHESTRATOR_LOG</div>
+        <div className="log-entries">
+          {tasks.length === 0 && <div className="no-tasks">AWAITING_COMMANDS...</div>}
+          {tasks.map(task => (
+            <div key={task.id} className={`log-entry ${task.type}`}>
+              <span className="log-time">[{task.timestamp}]</span>
+              <span className="log-id">[{task.id}]</span>
+              <span className="log-msg">{task.msg}</span>
+              {task.type === "pending" && <span className="log-spinner">⠋</span>}
             </div>
-            <div className="status-msg">{status.msg}</div>
-          </div>
-        )}
+          ))}
+        </div>
       </div>
 
       <style>{`
@@ -681,6 +650,60 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
           border: none !important;
           box-shadow: 0 0 15px var(--secondary);
         }
+        .task-orchestrator-log {
+          margin-top: 20px;
+          background: rgba(0, 0, 0, 0.4);
+          border: 1px solid rgba(0, 242, 255, 0.1);
+          border-radius: 4px;
+          overflow: hidden;
+          font-family: var(--terminal-font);
+        }
+        .log-header {
+          background: rgba(0, 242, 255, 0.05);
+          padding: 6px 12px;
+          font-size: 0.65rem;
+          color: var(--primary);
+          border-bottom: 1px solid rgba(0, 242, 255, 0.1);
+          letter-spacing: 0.1em;
+        }
+        .log-entries {
+          max-height: 150px;
+          overflow-y: auto;
+          padding: 8px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .no-tasks {
+          font-size: 0.65rem;
+          color: var(--text-muted);
+          text-align: center;
+          padding: 10px;
+        }
+        .log-entry {
+          font-size: 0.65rem;
+          display: flex;
+          gap: 8px;
+          align-items: center;
+          padding: 2px 4px;
+          border-radius: 2px;
+        }
+        .log-entry.pending { color: var(--primary); opacity: 0.8; }
+        .log-entry.success { color: var(--success); background: rgba(0, 255, 128, 0.05); }
+        .log-entry.error { color: var(--error); background: rgba(255, 0, 85, 0.05); }
+        
+        .log-time { opacity: 0.5; min-width: 65px; }
+        .log-id { font-weight: bold; min-width: 80px; }
+        .log-msg { flex: 1; }
+        
+        .log-spinner {
+          animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+
         .status-box {
           margin-top: 15px;
           padding: 10px;
