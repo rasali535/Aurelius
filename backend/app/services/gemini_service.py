@@ -80,6 +80,35 @@ async def create_agent_job(provider: str, evaluator: str, description: str, wall
         logger.error(f"Create job tool failed: {e}")
         return {"status": "error", "message": str(e)}
 
+async def get_crypto_price(symbol: str):
+    """Fetches real-time price data for a crypto symbol."""
+    mapping = {
+        "btc": "bitcoin",
+        "eth": "ethereum",
+        "sol": "solana",
+        "usdc": "usd-coin"
+    }
+    coin_id = mapping.get(symbol.lower(), symbol.lower())
+    url = f"https://api.coingecko.com/api/v3/simple/price?ids={coin_id}&vs_currencies=usd&include_24hr_change=true"
+    
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            res = await client.get(url)
+            data = res.json()
+            if coin_id in data:
+                price = data[coin_id]["usd"]
+                change = data[coin_id].get("usd_24h_change", 0)
+                return {
+                    "status": "success",
+                    "symbol": symbol.upper(),
+                    "price_usd": price,
+                    "change_24h": f"{change:.2f}%"
+                }
+            return {"status": "error", "message": f"Symbol {symbol} not found."}
+    except Exception as e:
+        logger.error(f"Price tool failed: {e}")
+        return {"status": "error", "message": str(e)}
+
 async def gateway_nanopayment(destination_blockchain: str, destination_address: str, amount: float, wallet_id: str):
     try:
         tx_hash = await circle_service.gateway_transfer(wallet_id, destination_blockchain, destination_address, amount)
@@ -247,6 +276,20 @@ class GeminiService:
                         "required": ["document_type", "amount", "vendor_address"]
                     }
                 }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_crypto_price",
+                    "description": "Fetches the current market price of a cryptocurrency (e.g. BTC, ETH, SOL, USDC).",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "symbol": {"type": "string", "description": "The crypto symbol or ID (e.g. btc, eth, solana)."}
+                        },
+                        "required": ["symbol"]
+                    }
+                }
             }
         ]
 
@@ -289,6 +332,8 @@ class GeminiService:
                             res = await create_agent_job(**func_args)
                         elif func_name == "gateway_nanopayment":
                             res = await gateway_nanopayment(**func_args)
+                        elif func_name == "get_crypto_price":
+                            res = await get_crypto_price(**func_args)
                         else:
                             res = {"status": "error", "message": "Unknown tool"}
                             
