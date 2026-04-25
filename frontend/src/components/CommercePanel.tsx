@@ -175,8 +175,8 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
       </div>
 
       <div className="panel-header">
-        <h3 style={{ fontSize: '0.86rem', color: 'var(--primary)', letterSpacing: '0.05em' }}>
-          {activeTab === 'swap' ? 'LIQUIDITY_SWAP_INTERFACE' : 'CCTP_NATIVE_BRIDGE'}
+        <h3 style={{ fontSize: '1.2rem', color: 'var(--primary)', letterSpacing: '0.05em' }}>
+          {activeTab === 'swap' ? 'LIQUIDITY_SWAP_INTERFACE' : activeTab === 'bridge' ? 'CCTP_NATIVE_BRIDGE' : 'AGENTIC_ECONOMY_CORE'}
         </h3>
         <div className="protocol-badge">{activeTab === 'swap' ? 'ARC_DEX_v2' : 'CIRCLE_CCTP_v2'}</div>
       </div>
@@ -401,11 +401,16 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
 
       <style>{`
         .commerce-panel {
-          border: 1px solid var(--primary-low) !important;
-          background: rgba(5, 5, 15, 0.8) !important;
+          border: 1px solid var(--primary-glow) !important;
+          background: rgba(5, 5, 15, 0.9) !important;
           position: relative;
           overflow: hidden;
-          padding-top: 0 !important;
+          padding: 30px !important;
+          margin-bottom: 40px !important;
+          box-shadow: 0 0 40px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(0, 242, 255, 0.05) !important;
+          max-width: 800px;
+          align-self: center;
+          width: 100%;
         }
         .panel-tabs {
           display: flex;
@@ -418,10 +423,13 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
           background: transparent;
           border: none;
           color: var(--text-muted);
-          font-size: 0.7rem;
+          font-size: 0.85rem;
           font-family: var(--terminal-font);
           cursor: pointer;
           transition: all 0.2s;
+          padding: 15px;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
         }
         .tab-btn.active {
           color: var(--primary);
@@ -489,10 +497,11 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
           background: transparent;
           border: none;
           color: white;
-          font-size: 1.2rem;
+          font-size: 1.5rem;
           font-family: var(--terminal-font);
           width: 100%;
           outline: none;
+          padding: 5px 0;
         }
         .bridge-amount-input {
           text-align: right;
@@ -521,11 +530,11 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
           border: 1px solid rgba(255, 255, 255, 0.1);
           color: var(--primary);
           width: 100%;
-          padding: 6px;
+          padding: 12px;
           font-family: var(--terminal-font);
-          font-size: 0.7rem;
-          border-radius: 2px;
-          margin-top: 4px;
+          font-size: 0.9rem;
+          border-radius: 4px;
+          margin-top: 8px;
         }
         .swap-divider {
           display: flex;

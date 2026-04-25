@@ -141,8 +141,6 @@ export default function Dashboard({ onBack }: { onBack: () => void }) {
           </div>
 
           <MarketTicker />
-
-          <CommercePanel summary={summary} />
           
           <div className="card simulation-control">
             <h3 style={{ fontSize: '0.86rem', color: 'var(--success)', marginBottom: '8px' }}>AUTO_PILOT_ENGINE</h3>
@@ -160,6 +158,8 @@ export default function Dashboard({ onBack }: { onBack: () => void }) {
 
         {/* Center Column: Neural Core */}
         <div className="neural-core">
+          <CommercePanel summary={summary} />
+          
           <AgentPaymentFlow isLive={isSimulating || isBatchRunning} />
 
           {run && (
