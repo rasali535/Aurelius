@@ -379,7 +379,7 @@ class CircleService:
             wallet_id=source_wallet_id,
             contract_address=src["token_messenger"],
             abi_signature="depositForBurn(uint256,uint32,bytes32,address)",
-            abi_parameters=[str(amount_raw), str(dst["domain"]), recipient_bytes32, src["usdc"]]
+            abi_parameters=[int(amount_raw), int(dst["domain"]), recipient_bytes32, src["usdc"]]
         )
         print(f"Burn successful: {burn_tx}")
 
