@@ -21,8 +21,8 @@ CCTP_CONFIG = {
     "ETH-SEPOLIA": {
         "domain": 0,
         "usdc": "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
-        "token_messenger": "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA",
-        "message_transmitter": "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275"
+        "token_messenger": "0x9f3B8679c73C2Fef8b59B4f3444d4e156fb70AA5",
+        "message_transmitter": "0x7865fAfC2db2093669d92c0F33AeEF291086BEFD"
     }
 }
 
