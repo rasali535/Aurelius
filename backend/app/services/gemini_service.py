@@ -333,11 +333,6 @@ class GeminiService:
 
         return await self._fallback(prompt)
 
-    async def analyze_multimodal_commerce(self, base64_image: str, prompt: str):
-        """Uses Gemini Vision to analyze commerce documents."""
-        if not self.google_api_key:
-            return "Vision capability requires GOOGLE_API_KEY."
-
     async def analyze_multimodal_commerce(self, prompt: str, base64_image: str):
         """Analyzes a document using Gemini via AI/ML API (primary) or Google Direct (fallback)."""
         if "," in base64_image:
