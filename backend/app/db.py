@@ -82,11 +82,21 @@ def _build_where(filter_doc: dict):
                 params.append(str(value))
                 idx += 1
         else:
-            if isinstance(value, dict) and "$in" in value:
-                placeholders = ", ".join(f"${i}" for i in range(idx, idx + len(value["$in"])))
-                clauses.append(f"data->>'{key}' IN ({placeholders})")
-                params.extend([str(v) for v in value["$in"]])
-                idx += len(value["$in"])
+            if isinstance(value, dict):
+                if "$in" in value:
+                    placeholders = ", ".join(f"${i}" for i in range(idx, idx + len(value["$in"])))
+                    clauses.append(f"data->>'{key}' IN ({placeholders})")
+                    params.extend([str(v) for v in value["$in"]])
+                    idx += len(value["$in"])
+                elif "$gt" in value:
+                    # Try to treat as numeric if possible
+                    clauses.append(f"(data->>'{key}')::numeric > ${idx}")
+                    params.append(value["$gt"])
+                    idx += 1
+                elif "$lt" in value:
+                    clauses.append(f"(data->>'{key}')::numeric < ${idx}")
+                    params.append(value["$lt"])
+                    idx += 1
             else:
                 clauses.append(f"data->>'{key}' = ${idx}")
                 params.append(str(value))
