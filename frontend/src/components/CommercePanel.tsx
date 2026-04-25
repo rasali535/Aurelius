@@ -3,7 +3,40 @@ import { api } from "../services/api";
 import type { DashboardSummary } from "../types";
 
 export default function CommercePanel({ summary }: { summary: DashboardSummary | null }) {
-  const [activeTab, setActiveTab] = useState<"swap" | "bridge" | "agents">("swap");
+  const [activeTab, setActiveTab] = useState<"swap" | "bridge" | "agents" | "vision">("swap");
+
+  // Vision State
+  const [visionImage, setVisionImage] = useState<string | null>(null);
+  const [visionStatus, setVisionStatus] = useState<string>("");
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setVisionImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleVisionSettlement = async () => {
+    if (!visionImage) return;
+    setLoading(true);
+    setVisionStatus("ANALYZING_DOCUMENT_VIA_GEMINI_VISION...");
+    try {
+      const base64 = visionImage.split(',')[1];
+      const res = await api.post("/commerce/multimodal/settle", { image: base64 });
+      setVisionStatus(`ANALYSIS: ${res.data.analysis}\n\nDECISION: ${JSON.stringify(res.data.decision)}`);
+      if (res.data.tx_hash) {
+        setStatus({ type: "success", msg: `MULTIMODAL_SETTLEMENT_SUCCESS! TX: ${res.data.tx_hash.slice(0, 20)}...` });
+      }
+    } catch (err: any) {
+      setVisionStatus(`FAILED: ${err.response?.data?.detail || "VISION_ERROR"}`);
+    } finally {
+      setLoading(false);
+    }
+  };
   
   // Swap State
   const [fromToken, setFromToken] = useState("USDC");
@@ -171,6 +204,12 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
           onClick={() => { setActiveTab('agents'); setStatus({ type: 'none', msg: '' }); }}
         >
           AGENTS_&_JOBS
+        </button>
+        <button 
+          className={`tab-btn ${activeTab === 'vision' ? 'active' : ''}`} 
+          onClick={() => { setActiveTab('vision'); setStatus({ type: 'none', msg: '' }); }}
+        >
+          VISION_CHECKOUT
         </button>
       </div>
 
@@ -385,6 +424,68 @@ export default function CommercePanel({ summary }: { summary: DashboardSummary |
           >
             {loading ? "PROCESSING_BULK_TX..." : "🚀 GENERATE_50_TX_PROOF (HACKATHON_DEMO)"}
           </button>
+        </div>
+      ) : (
+        <div className="vision-container" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <div className="swap-box">
+            <div className="swap-box-header">
+              <label>MULTIMODAL_DOCUMENT_SCAN</label>
+            </div>
+            <div className="vision-upload-area" style={{ 
+              border: '2px dashed rgba(0, 242, 255, 0.2)', 
+              borderRadius: '8px', 
+              padding: '20px', 
+              textAlign: 'center',
+              background: 'rgba(0, 0, 0, 0.2)'
+            }}>
+              {visionImage ? (
+                <div style={{ position: 'relative' }}>
+                  <img src={visionImage} alt="Upload" style={{ maxWidth: '100%', maxHeight: '150px', borderRadius: '4px' }} />
+                  <button 
+                    onClick={() => setVisionImage(null)}
+                    style={{ position: 'absolute', top: '-10px', right: '-10px', background: 'var(--error)', border: 'none', borderRadius: '50%', width: '20px', height: '20px', color: 'white', cursor: 'pointer' }}
+                  >
+                    ×
+                  </button>
+                </div>
+              ) : (
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                  <p>DRAG_&_DROP_INVOICE_OR_RECEIPT</p>
+                  <input type="file" accept="image/*" onChange={handleFileChange} style={{ marginTop: '10px' }} />
+                </div>
+              )}
+            </div>
+          </div>
+
+          <button 
+            className="cyber-btn primary-glow" 
+            onClick={handleVisionSettlement} 
+            disabled={loading || !visionImage}
+            style={{ width: '100%' }}
+          >
+            {loading ? "GEMINI_IS_THINKING..." : "ANALYZE_&_SETTLE_ON_ARC"}
+          </button>
+
+          {visionStatus && (
+            <div className="vision-results" style={{ 
+              background: 'rgba(0, 0, 0, 0.3)', 
+              padding: '10px', 
+              borderRadius: '4px', 
+              fontSize: '0.65rem', 
+              color: 'var(--primary)',
+              whiteSpace: 'pre-wrap',
+              maxHeight: '150px',
+              overflowY: 'auto',
+              fontFamily: 'var(--terminal-font)'
+            }}>
+              {visionStatus}
+            </div>
+          )}
+          
+          <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)' }}>
+            • Uses <strong>Gemini 1.5 Flash</strong> (Multimodal) to verify invoices.<br/>
+            • Decisions are executed via <strong>Circle Gateway Nanopayments</strong> on Arc.
+          </div>
         </div>
       )}
 

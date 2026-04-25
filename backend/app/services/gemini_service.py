@@ -211,6 +211,22 @@ class GeminiService:
                         "required": ["destination_blockchain", "destination_address", "amount", "wallet_id"]
                     }
                 }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "request_settlement_from_image",
+                    "description": "Analyzes a commerce document (invoice/receipt) and requests settlement on Arc.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "document_type": {"type": "string", "enum": ["invoice", "receipt", "contract"]},
+                            "amount": {"type": "number"},
+                            "vendor_address": {"type": "string"}
+                        },
+                        "required": ["document_type", "amount", "vendor_address"]
+                    }
+                }
             }
         ]
 
@@ -296,6 +312,37 @@ class GeminiService:
             logger.error(f"AI/ML API completion failed: {e}")
 
         return await self._fallback(prompt)
+
+    async def analyze_multimodal_commerce(self, base64_image: str, prompt: str):
+        """Uses Gemini Vision to analyze commerce documents."""
+        if not self.google_api_key:
+            return "Vision capability requires GOOGLE_API_KEY."
+            
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={self.google_api_key}"
+                payload = {
+                    "contents": [{
+                        "parts": [
+                            {"text": prompt},
+                            {
+                                "inline_data": {
+                                    "mime_type": "image/jpeg",
+                                    "data": base64_image
+                                }
+                            }
+                        ]
+                    }]
+                }
+                resp = await client.post(url, json=payload)
+                if resp.status_code == 200:
+                    return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+                else:
+                    logger.error(f"Gemini Vision failed: {resp.text}")
+                    return "Failed to analyze document."
+        except Exception as e:
+            logger.error(f"Vision error: {e}")
+            return str(e)
 
     async def _fallback(self, prompt: str):
         from app.services.featherless_service import featherless_service

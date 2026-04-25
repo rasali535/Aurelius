@@ -219,25 +219,65 @@ async def fund_job(payload: FundJobRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-class GatewayTransferRequest(BaseModel):
-    destination_blockchain: str
-    destination_address: str
-    amount: float
+class MultimodalSettleRequest(BaseModel):
+    image: str
+    prompt: Optional[str] = "Analyze this commerce document and extract the vendor address and amount to be settled in USDC."
 
-@router.post("/gateway/transfer")
-async def gateway_transfer(payload: GatewayTransferRequest):
-    """Executes a unified balance transfer via Gateway."""
+@router.post("/multimodal/settle")
+async def multimodal_settle(payload: MultimodalSettleRequest):
+    """
+    Uses Gemini Vision to analyze an image (invoice/receipt) and initiates a settlement.
+    """
     try:
-        requester = await db.config.find_one({"_id": "requester_wallet"})
-        if not requester:
-            raise Exception("No requester wallet configured.")
-            
-        tx_hash = await circle_service.gateway_transfer(
-            wallet_id=requester["wallet_id"],
-            destination_blockchain=payload.destination_blockchain,
-            destination_address=payload.destination_address,
-            amount=payload.amount
+        # 1. Analyze with Gemini Vision
+        analysis = await gemini_service.analyze_multimodal_commerce(
+            base64_image=payload.image,
+            prompt=payload.prompt
         )
-        return {"status": "success", "tx_hash": tx_hash}
+        
+        # 2. Extract structured decision via reasoning
+        reasoning_prompt = f"Based on this analysis: '{analysis}', determine if a settlement is required. Respond ONLY with a JSON object like {{\"settle\": true, \"amount\": 0.001, \"address\": \"0x...\", \"reason\": \"...\"}} or {{\"settle\": false}}."
+        decision_raw = await gemini_service.run_completion(reasoning_prompt)
+        
+        import json
+        import re
+        match = re.search(r'\{.*\}', decision_raw, re.DOTALL)
+        if not match:
+             return {"analysis": analysis, "status": "No structured settlement data found."}
+             
+        decision = json.loads(match.group())
+        
+        if decision.get("settle"):
+            requester = await db.config.find_one({"_id": "requester_wallet"})
+            if not requester:
+                wallets = await circle_service.list_wallets()
+                requester = {"wallet_id": wallets[0]["id"]}
+                
+            tx_hash = await circle_service.gateway_transfer(
+                wallet_id=requester["wallet_id"],
+                destination_blockchain="ARC-TESTNET",
+                destination_address=decision.get("address") or "0x3E5A42D19a584093952fA6d7667C82D7068560F4",
+                amount=float(decision.get("amount") or 0.001)
+            )
+            
+            # Record the event
+            payment_event = {
+                "_id": generate_id("pay"),
+                "amount_usdc": float(decision.get("amount") or 0.001),
+                "status": "settled",
+                "tx_hash": tx_hash,
+                "x402_status": "multimodal_settlement",
+                "created_at": utc_now()
+            }
+            await db.payment_events.insert_one(payment_event)
+            
+            return {
+                "analysis": analysis,
+                "decision": decision,
+                "tx_hash": tx_hash,
+                "status": "Multimodal Settlement Complete"
+            }
+            
+        return {"analysis": analysis, "decision": decision, "status": "No settlement needed"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
