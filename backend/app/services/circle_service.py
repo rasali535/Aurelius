@@ -7,6 +7,7 @@ import codecs
 import json
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import padding
+from fastapi import HTTPException
 from app.config import settings
 
 # CCTP V2 Configuration for Testnet
@@ -257,8 +258,10 @@ class CircleService:
         async with httpx.AsyncClient() as client:
             resp = await client.post(url, json=payload, headers=self.headers)
             if resp.status_code >= 400:
-                print(f"CIRCLE API ERROR ({resp.status_code}) in contract_execution: {resp.text}")
-            resp.raise_for_status()
+                error_detail = resp.text
+                print(f"CIRCLE API ERROR ({resp.status_code}) in contract_execution: {error_detail}")
+                raise HTTPException(status_code=resp.status_code, detail=f"CIRCLE_API_ERROR: {error_detail}")
+            
             job_id = resp.json()["data"]["id"]
             
             # Poll for completion
