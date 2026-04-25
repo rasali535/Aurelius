@@ -359,12 +359,7 @@ class CircleService:
         message, attestation = await self.get_cctp_attestation(src["domain"], burn_tx)
         print("Attestation received!")
 
-        # Step 4: Receive Message
-        # NOTE: This requires a wallet on the destination chain in the same wallet set.
-        # For simplicity, we assume the same wallet_id works if it's the same address on both chains,
-        # but in Circle W3S, wallet_id is chain-specific.
-        # We need to find the wallet ID for the destination blockchain.
-        
+        # Step 4: Receive Message on destination chain
         print("Step 4/4: Minting on destination chain...")
         dest_wallet_id = await self.get_wallet_id_for_chain(wallet_id, destination_blockchain)
         if not dest_wallet_id:
@@ -383,7 +378,10 @@ class CircleService:
         return {
             "sourceTx": burn_tx,
             "destTx": mint_tx,
-            "status": "SUCCESS"
+            "status": "SUCCESS",
+            "source_blockchain": source_blockchain,
+            "destination_blockchain": destination_blockchain,
+            "amount": amount
         }
 
     # --- ERC-8004: AI Agent Identity ---
