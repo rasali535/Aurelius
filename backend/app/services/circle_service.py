@@ -280,18 +280,20 @@ class CircleService:
             for i in range(120):  # up to 120s
                 status_resp = await client.get(status_url, headers=self.headers)
                 if status_resp.status_code == 200:
-                    tx_wrapper = status_resp.json().get("data", {}).get("transaction", {})
-                    # Circle uses 'state' for W3S transactions
-                    tx_state = tx_wrapper.get("state") or tx_wrapper.get("status", "")
+                    resp_json = status_resp.json()
+                    data = resp_json.get("data", {})
+                    # Circle sometimes nests under 'transaction', sometimes not
+                    tx_wrapper = data.get("transaction") or data
+                    
+                    tx_state = tx_wrapper.get("state") or tx_wrapper.get("status")
                     
                     if tx_state in ("COMPLETE", "CONFIRMED"):
                         tx_hash = tx_wrapper.get("txHash") or tx_wrapper.get("transactionHash")
                         if not tx_hash:
-                            # Sometimes it takes a moment for the hash to appear even if confirmed
                             if i < 115:
                                 await asyncio.sleep(1)
                                 continue
-                            print(f"WARNING: Tx state={tx_state} but no txHash found after 115s. Wrapper: {tx_wrapper}")
+                            print(f"WARNING: Tx state={tx_state} but no txHash found. Wrapper: {tx_wrapper}")
                             return f"0x_completed_{job_id}"
                         print(f"  Transaction {tx_state}: {tx_hash}")
                         return tx_hash
@@ -299,8 +301,8 @@ class CircleService:
                         err_msg = tx_wrapper.get("errorMessage") or tx_wrapper.get("error") or "Unknown"
                         raise Exception(f"Contract execution {tx_state}: {err_msg} | Full: {tx_wrapper}")
                     
-                    if i % 5 == 0:
-                        print(f"    ... state={tx_state} ({i}s)")
+                    if i % 10 == 0:
+                        print(f"    ... state={tx_state} ({i}s) | ID: {job_id}")
                 else:
                     print(f"    ... status check failed ({status_resp.status_code})")
                     
